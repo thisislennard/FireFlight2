@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% from "dashboards/_widget.html" import render_widget %}
+{% block title %}{{ dashboard.name }} – FireFlight2{% endblock %}
+{% block page_title %}{{ dashboard.name }}{% endblock %}
+{% block content %}
+{% if has_permission('dashboard.manage') %}
+<div class="page-header">
+  <span></span>
+  <a class="btn btn-secondary" href="{{ url_for('administration.dashboard_edit', role_id=role.id) }}">Dashboard bearbeiten</a>
+</div>
+{% endif %}
+{% if not dashboard.widgets %}
+<p class="text-muted">Für diese Rolle sind noch keine Dashboard-Elemente konfiguriert.</p>
+{% endif %}
+<div class="dashboard-grid">
+  {% for widget in dashboard.widgets if widget.is_visible %}
+    {{ render_widget(widget) }}
+  {% endfor %}
+</div>
+{% endblock %}

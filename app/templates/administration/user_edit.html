@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}Benutzer – Administration{% endblock %}
+{% block page_title %}{{ "Benutzer bearbeiten" if user else "Neuer Benutzer" }}{% endblock %}
+{% block content %}
+{% if error %}<div class="flash flash-error">{{ error }}</div>{% endif %}
+<form method="post" class="card elev-sm" style="max-width:520px;">
+  {% if not user %}
+  <div class="field"><label>Benutzername</label><input class="input" type="text" name="username" required></div>
+  <div class="field"><label>E-Mail</label><input class="input" type="email" name="email" required></div>
+  <div class="field"><label>Anzeigename</label><input class="input" type="text" name="display_name" required></div>
+  <div class="field"><label>Initialpasswort</label><input class="input" type="password" name="password" required></div>
+  {% else %}
+  <div class="field"><label>Benutzername</label><input class="input" type="text" value="{{ user.username }}" disabled></div>
+  <div class="field"><label>E-Mail</label><input class="input" type="email" name="email" value="{{ user.email }}"></div>
+  <div class="field"><label>Anzeigename</label><input class="input" type="text" name="display_name" value="{{ user.display_name }}"></div>
+  <div class="field">
+    <label>Rollen</label>
+    <div class="checkbox-list">
+      {% for role in all_roles %}
+      <label class="checkbox-row">
+        <input type="checkbox" name="role_ids" value="{{ role.id }}" {% if role in user.roles %}checked{% endif %}>
+        {{ role.name }}
+      </label>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+  <div class="form-actions">
+    <button type="submit" class="btn btn-primary">Speichern</button>
+    <a class="btn btn-secondary" href="{{ url_for('administration.users') }}">Abbrechen</a>
+  </div>
+</form>
+{% endblock %}

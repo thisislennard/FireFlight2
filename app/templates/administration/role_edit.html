@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title %}Rolle – Administration{% endblock %}
+{% block page_title %}{{ "Rolle bearbeiten" if role else "Neue Rolle" }}{% endblock %}
+{% block content %}
+{% if error %}<div class="flash flash-error">{{ error }}</div>{% endif %}
+<form method="post" class="card elev-sm" style="max-width:560px;">
+  {% if not role %}
+  <div class="field"><label>Schlüssel (technisch, eindeutig)</label><input class="input" type="text" name="key" required pattern="[a-z0-9_]+"></div>
+  {% endif %}
+  <div class="field"><label>Name</label><input class="input" type="text" name="name" value="{{ role.name if role else '' }}" required></div>
+  <div class="field"><label>Beschreibung</label><textarea class="input" name="description">{{ role.description if role else '' }}</textarea></div>
+  <div class="field"><label>Icon (Schlüsselwort)</label><input class="input" type="text" name="icon" value="{{ role.icon if role else '' }}"></div>
+  <div class="field"><label>Akzentfarbe (Hex)</label><input class="input" type="text" name="accent_color" value="{{ role.accent_color if role else '' }}" placeholder="#ec3013"></div>
+  {% if role %}
+  <div class="field"><label>Sortierung</label><input class="input" type="number" name="sort_order" value="{{ role.sort_order }}"></div>
+  <div class="field">
+    <label>Berechtigungen{% if role.is_system %} (Systemrolle – erhält automatisch alle Berechtigungen){% endif %}</label>
+    <div class="checkbox-list">
+      {% for permission in all_permissions %}
+      <label class="checkbox-row">
+        <input type="checkbox" name="permission_keys" value="{{ permission.key }}"
+               {% if permission in role.permissions %}checked{% endif %} {% if role.is_system %}disabled{% endif %}>
+        {{ permission.key }} — <span class="text-muted">{{ permission.description }}</span>
+      </label>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+  <div class="form-actions">
+    <button type="submit" class="btn btn-primary">Speichern</button>
+    <a class="btn btn-secondary" href="{{ url_for('administration.roles') }}">Abbrechen</a>
+  </div>
+</form>
+{% endblock %}

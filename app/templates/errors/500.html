@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block title %}Fehler – FireFlight2{% endblock %}
+{% block page_title %}Es ist ein Fehler aufgetreten{% endblock %}
+{% block content %}
+<p>{{ message or "Es ist ein unerwarteter Fehler aufgetreten. Bitte versuche es erneut." }}</p>
+{% endblock %}
+{% block guest_content %}
+<div class="card elev-md" style="max-width:420px;">
+  <h2>Es ist ein Fehler aufgetreten</h2>
+  <p>{{ message or "Bitte versuche es erneut." }}</p>
+  <a class="btn btn-primary" href="{{ url_for('auth.login') }}">Zur Anmeldung</a>
+</div>
+{% endblock %}

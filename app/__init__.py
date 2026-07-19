@@ -1,0 +1,136 @@
+from __future__ import annotations
+
+import logging
+
+from flask import Flask, redirect, render_template, session, url_for
+from flask_login import current_user
+
+from app.config import CONFIG_BY_NAME, get_config_name
+from app.core.exceptions import NotFoundError, PermissionDenied, ValidationError
+from app.extensions import csrf, db, limiter, login_manager, migrate
+
+
+def create_app(config_name: str | None = None) -> Flask:
+    app = Flask(__name__)
+    config_name = config_name or get_config_name()
+    app.config.from_object(CONFIG_BY_NAME.get(config_name, CONFIG_BY_NAME["production"]))
+
+    _init_extensions(app)
+    _register_blueprints(app)
+    _register_error_handlers(app)
+    _register_hooks(app)
+    _register_cli(app)
+    _register_root_route(app)
+    _configure_logging(app)
+
+    return app
+
+
+def _init_extensions(app: Flask) -> None:
+    db.init_app(app)
+    migrate.init_app(app, db)
+    login_manager.init_app(app)
+    login_manager.login_view = "auth.login"
+    csrf.init_app(app)
+    limiter.init_app(app)
+
+    @login_manager.user_loader
+    def load_user(user_id: str):
+        from app.auth.models import User
+
+        return db.session.get(User, user_id)
+
+
+def _register_blueprints(app: Flask) -> None:
+    # Reihenfolge bewusst: auth/roles/dashboards zuerst (werden von administration/dji_flighthub
+    # per url_for referenziert und müssen daher schon registrierte Endpunkte haben).
+    from app.administration.routes import bp as administration_bp
+    from app.auth.routes import bp as auth_bp
+    from app.dashboards.routes import bp as dashboards_bp
+    from app.integrations.dji_flighthub.routes import bp as dji_flighthub_bp
+    from app.roles.routes import bp as roles_bp
+
+    app.register_blueprint(auth_bp)
+    app.register_blueprint(roles_bp)
+    app.register_blueprint(dashboards_bp)
+    app.register_blueprint(administration_bp)
+    app.register_blueprint(dji_flighthub_bp)
+
+
+def _register_error_handlers(app: Flask) -> None:
+    @app.errorhandler(PermissionDenied)
+    def _permission_denied(exc):
+        return render_template("errors/403.html"), 403
+
+    @app.errorhandler(ValidationError)
+    def _validation_error(exc):
+        return render_template("errors/500.html", message=exc.message), 400
+
+    @app.errorhandler(NotFoundError)
+    def _domain_not_found(exc):
+        return render_template("errors/404.html"), 404
+
+    @app.errorhandler(403)
+    def _http_forbidden(exc):
+        return render_template("errors/403.html"), 403
+
+    @app.errorhandler(404)
+    def _http_not_found(exc):
+        return render_template("errors/404.html"), 404
+
+    @app.errorhandler(500)
+    def _http_server_error(exc):
+        db.session.rollback()
+        return render_template("errors/500.html"), 500
+
+
+def _register_hooks(app: Flask) -> None:
+    @app.before_request
+    def _load_active_role():
+        from app.core.security.permissions import get_active_role
+
+        get_active_role()
+
+    @app.after_request
+    def _security_headers(response):
+        response.headers.setdefault("X-Content-Type-Options", "nosniff")
+        response.headers.setdefault("X-Frame-Options", "DENY")
+        response.headers.setdefault("Referrer-Policy", "same-origin")
+        response.headers.setdefault(
+            "Content-Security-Policy",
+            "default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'",
+        )
+        return response
+
+    @app.context_processor
+    def _inject_globals():
+        from app.core.security.permissions import get_active_role, role_has_permission
+        from app.modules.registry import module_registry
+
+        active_role = get_active_role()
+        return {
+            "active_role": active_role,
+            "has_permission": lambda key: role_has_permission(active_role, key),
+            "module_navigation": module_registry.navigation,
+        }
+
+
+def _register_cli(app: Flask) -> None:
+    from app.cli import register_cli
+
+    register_cli(app)
+
+
+def _register_root_route(app: Flask) -> None:
+    @app.route("/")
+    def index():
+        if not current_user.is_authenticated:
+            return redirect(url_for("auth.login"))
+        if not session.get("active_role_id"):
+            return redirect(url_for("roles.select"))
+        return redirect(url_for("dashboards.view"))
+
+
+def _configure_logging(app: Flask) -> None:
+    if not app.debug:
+        logging.basicConfig(level=logging.INFO)

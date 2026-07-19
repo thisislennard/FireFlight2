@@ -1,0 +1,49 @@
+{% macro render_widget(widget, editable=false, role_id=none) %}
+<div class="dashboard-widget card elev-sm" style="grid-column: span {{ widget.width }};">
+  {% if widget.widget_type == "heading" %}
+    <h3 style="margin:0;">{{ widget.config.get("text", widget.title) }}</h3>
+  {% elif widget.widget_type == "info_text" %}
+    {% if widget.title %}<div class="card-title">{{ widget.title }}</div>{% endif %}
+    <p class="card-body">{{ widget.config.get("text", "") }}</p>
+  {% elif widget.widget_type == "quick_link" %}
+    <div class="card-title">{{ widget.title or "Schnellzugriff" }}</div>
+    {% if widget.config.get("url") %}
+      <a class="btn btn-secondary" href="{{ widget.config.get("url") }}">{{ widget.config.get("label") or widget.config.get("url") }}</a>
+    {% else %}
+      <p class="card-body text-muted">Kein Link hinterlegt.</p>
+    {% endif %}
+  {% elif widget.widget_type == "status" %}
+    <div class="card-title">{{ widget.title or "Status" }}</div>
+    {% set state = widget.config.get("state", "neutral") %}
+    <span class="tag {% if state == 'active' %}tag-accent{% elif state == 'standby' %}tag-outline{% else %}tag-neutral{% endif %}">
+      {{ widget.config.get("label") or state }}
+    </span>
+  {% elif widget.widget_type == "metric" %}
+    <div class="card-kicker">{{ widget.title or "Kennzahl" }}</div>
+    <div class="tabular-nums" style="font-family:var(--font-heading); font-weight:800; font-size:26px;">
+      {{ widget.config.get("value", "–") }}
+    </div>
+  {% elif widget.widget_type == "notice" %}
+    <div class="card-title">{{ widget.title or "Hinweis" }}</div>
+    <p class="card-body">{{ widget.config.get("text", "") }}</p>
+  {% elif widget.widget_type == "warning" %}
+    <div class="card-title" style="color: var(--color-accent-700);">{{ widget.title or "Warnung" }}</div>
+    <p class="card-body">{{ widget.config.get("text", "") }}</p>
+  {% elif widget.widget_type == "dji_integration_status" %}
+    <div class="card-title">DJI-Integrationsstatus</div>
+    <p class="card-body">Details siehe <a href="{{ url_for('dji_flighthub.status') }}">Integrationen</a>.</p>
+  {% else %}
+    <div class="card-title text-muted">{{ widget.title or "Platzhalter" }}</div>
+    <p class="card-body text-muted">Noch kein Inhalt konfiguriert.</p>
+  {% endif %}
+
+  {% if editable %}
+  <div class="widget-actions">
+    <form method="post" action="{{ url_for('administration.dashboard_delete_widget', role_id=role_id, widget_id=widget.id) }}"
+          onsubmit="return true;">
+      <button type="submit" class="btn btn-ghost">Entfernen</button>
+    </form>
+  </div>
+  {% endif %}
+</div>
+{% endmacro %}

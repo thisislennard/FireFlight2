@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}Audit-Log – Administration{% endblock %}
+{% block page_title %}Audit-Log{% endblock %}
+{% block content %}
+<form method="get" class="field" style="max-width:320px;">
+  <label>Aktion filtern</label>
+  <select class="input" name="action" onchange="this.form.submit()">
+    <option value="">Alle Aktionen</option>
+    {% for action in actions %}
+    <option value="{{ action }}" {% if action == action_filter %}selected{% endif %}>{{ action }}</option>
+    {% endfor %}
+  </select>
+</form>
+<table class="table">
+  <thead><tr><th>Zeitpunkt</th><th>Aktion</th><th>Ergebnis</th><th>Objekt</th></tr></thead>
+  <tbody>
+    {% for entry in pagination.items %}
+    <tr>
+      <td class="tabular-nums">{{ entry.created_at.strftime("%d.%m.%Y %H:%M:%S") }}</td>
+      <td>{{ entry.action }}</td>
+      <td>{% if entry.result == "success" %}<span class="tag tag-accent">Erfolg</span>{% else %}<span class="tag tag-outline">Fehlgeschlagen</span>{% endif %}</td>
+      <td>{{ entry.object_type or "–" }} {{ entry.object_id or "" }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+<div class="form-actions">
+  {% if pagination.has_prev %}<a class="btn btn-secondary" href="?page={{ pagination.prev_num }}{% if action_filter %}&action={{ action_filter }}{% endif %}">Zurück</a>{% endif %}
+  {% if pagination.has_next %}<a class="btn btn-secondary" href="?page={{ pagination.next_num }}{% if action_filter %}&action={{ action_filter }}{% endif %}">Weiter</a>{% endif %}
+</div>
+{% endblock %}

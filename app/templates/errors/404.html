@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block title %}Nicht gefunden – FireFlight2{% endblock %}
+{% block page_title %}Nicht gefunden{% endblock %}
+{% block content %}
+<p>Diese Seite gibt es nicht.</p>
+{% endblock %}
+{% block guest_content %}
+<div class="card elev-md" style="max-width:420px;">
+  <h2>Nicht gefunden</h2>
+  <p>Diese Seite gibt es nicht.</p>
+  <a class="btn btn-primary" href="{{ url_for('auth.login') }}">Zur Anmeldung</a>
+</div>
+{% endblock %}

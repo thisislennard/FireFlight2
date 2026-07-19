@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}Benutzer – Administration{% endblock %}
+{% block page_title %}Benutzer{% endblock %}
+{% block content %}
+<div class="page-header">
+  <span></span>
+  {% if has_permission('users.create') %}
+  <a class="btn btn-primary" href="{{ url_for('administration.user_new') }}">Neuer Benutzer</a>
+  {% endif %}
+</div>
+<table class="table">
+  <thead>
+    <tr>
+      <th>Benutzername</th><th>Anzeigename</th><th>E-Mail</th><th>Rollen</th><th>Status</th><th>Letzte Anmeldung</th><th></th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for user in users %}
+    <tr>
+      <td><a href="{{ url_for('administration.user_edit', user_id=user.id) }}">{{ user.username }}</a></td>
+      <td>{{ user.display_name }}</td>
+      <td>{{ user.email }}</td>
+      <td>{% for role in user.roles %}<span class="tag tag-neutral">{{ role.name }}</span>{% endfor %}</td>
+      <td>{% if user.is_active_account %}<span class="tag tag-accent">Aktiv</span>{% else %}<span class="tag tag-outline">Deaktiviert</span>{% endif %}</td>
+      <td>{{ user.last_login_at.strftime("%d.%m.%Y %H:%M") if user.last_login_at else "–" }}</td>
+      <td>
+        {% if has_permission('users.disable') %}
+        <form method="post" action="{{ url_for('administration.user_toggle_active', user_id=user.id) }}">
+          <button type="submit" class="btn btn-ghost">{{ "Deaktivieren" if user.is_active_account else "Aktivieren" }}</button>
+        </form>
+        {% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

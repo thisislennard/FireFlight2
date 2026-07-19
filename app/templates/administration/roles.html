@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}Rollen – Administration{% endblock %}
+{% block page_title %}Rollen{% endblock %}
+{% block content %}
+<div class="page-header">
+  <span></span>
+  {% if has_permission('roles.create') %}
+  <a class="btn btn-primary" href="{{ url_for('administration.role_new') }}">Neue Rolle</a>
+  {% endif %}
+</div>
+<table class="table">
+  <thead><tr><th>Name</th><th>Schlüssel</th><th>Status</th><th>Dashboard</th><th></th></tr></thead>
+  <tbody>
+    {% for role in roles %}
+    <tr>
+      <td><a href="{{ url_for('administration.role_edit', role_id=role.id) }}">{{ role.name }}</a>{% if role.is_system %} <span class="tag tag-outline">System</span>{% endif %}</td>
+      <td>{{ role.key }}</td>
+      <td>{% if role.is_active %}<span class="tag tag-accent">Aktiv</span>{% else %}<span class="tag tag-outline">Deaktiviert</span>{% endif %}</td>
+      <td>
+        {% if has_permission('dashboard.manage') %}
+        <a class="btn btn-ghost" href="{{ url_for('administration.dashboard_edit', role_id=role.id) }}">Bearbeiten</a>
+        {% endif %}
+      </td>
+      <td>
+        {% if has_permission('roles.disable') and not role.is_system and role.is_active %}
+        <form method="post" action="{{ url_for('administration.role_deactivate', role_id=role.id) }}">
+          <button type="submit" class="btn btn-ghost">Deaktivieren</button>
+        </form>
+        {% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

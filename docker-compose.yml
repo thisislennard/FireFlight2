@@ -1,0 +1,53 @@
+services:
+  fireflight2-db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-fireflight2}
+      POSTGRES_USER: ${POSTGRES_USER:-fireflight2}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - fireflight2-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-fireflight2} -d ${POSTGRES_DB:-fireflight2}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - fireflight2-internal
+
+  fireflight2-app:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      fireflight2-db:
+        condition: service_healthy
+    environment:
+      FLASK_ENV: ${FLASK_ENV:-production}
+      SECRET_KEY: ${SECRET_KEY}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-fireflight2}:${POSTGRES_PASSWORD}@fireflight2-db:5432/${POSTGRES_DB:-fireflight2}
+      TIMEZONE: ${TIMEZONE:-Europe/Berlin}
+      SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-true}
+      FIREFLIGHT_ADMIN_USERNAME: ${FIREFLIGHT_ADMIN_USERNAME:-admin}
+      FIREFLIGHT_ADMIN_EMAIL: ${FIREFLIGHT_ADMIN_EMAIL:-admin@example.org}
+      FIREFLIGHT_ADMIN_PASSWORD: ${FIREFLIGHT_ADMIN_PASSWORD:-}
+      DJI_FLIGHTHUB_ENABLED: ${DJI_FLIGHTHUB_ENABLED:-false}
+      DJI_FLIGHTHUB_BASE_URL: ${DJI_FLIGHTHUB_BASE_URL:-}
+      DJI_FLIGHTHUB_CLIENT_ID: ${DJI_FLIGHTHUB_CLIENT_ID:-}
+      DJI_FLIGHTHUB_CLIENT_SECRET: ${DJI_FLIGHTHUB_CLIENT_SECRET:-}
+    ports:
+      - "${HOST_PORT:-8000}:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/auth/login')"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - fireflight2-internal
+
+volumes:
+  fireflight2-db-data:
+
+networks:
+  fireflight2-internal:
+    driver: bridge

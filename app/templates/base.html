@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}FireFlight2{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
+</head>
+<body hx-boost="true" hx-headers='{"X-CSRFToken": "{{ csrf_token() }}"}'>
+  {% if current_user.is_authenticated %}
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <div class="logo-badge">{% include "_logo_svg.html" %}</div>
+        <span class="sidebar-brand-text">FireFlight2</span>
+      </div>
+      <nav class="sidebar-nav">
+        <a href="{{ url_for('dashboards.view') }}" class="sidebar-link">Dashboard</a>
+        {% for entry in module_navigation %}
+        <a href="{{ entry.endpoint }}" class="sidebar-link">{{ entry.label }}</a>
+        {% endfor %}
+      </nav>
+      {% if has_permission('administration.access') %}
+      <nav class="sidebar-nav sidebar-nav-admin">
+        <span class="sidebar-section-label">Administration</span>
+        {% if has_permission('users.view') %}<a href="{{ url_for('administration.users') }}" class="sidebar-link">Benutzer</a>{% endif %}
+        {% if has_permission('roles.view') %}<a href="{{ url_for('administration.roles') }}" class="sidebar-link">Rollen</a>{% endif %}
+        {% if has_permission('integrations.view') %}<a href="{{ url_for('dji_flighthub.status') }}" class="sidebar-link">Integrationen</a>{% endif %}
+        {% if has_permission('organization.view') %}<a href="{{ url_for('administration.organization') }}" class="sidebar-link">Organisation</a>{% endif %}
+        {% if has_permission('audit.view') %}<a href="{{ url_for('administration.audit_log') }}" class="sidebar-link">Audit-Log</a>{% endif %}
+      </nav>
+      {% endif %}
+    </aside>
+    <div class="app-main">
+      <header class="topbar">
+        <h1 class="topbar-title">{% block page_title %}{% endblock %}</h1>
+        <div class="topbar-actions">
+          {% set selectable = current_user.roles | selectattr('is_active') | list %}
+          {% if active_role and selectable|length > 1 %}
+          <div class="seg" role="group" aria-label="Aktive Rolle">
+            {% for role in selectable %}
+            <label class="seg-opt">
+              <input type="radio" name="role_id" value="{{ role.id }}"
+                     hx-post="{{ url_for('roles.activate', role_id=role.id) }}" hx-trigger="change"
+                     {% if role.id == active_role.id %}checked{% endif %}>
+              <span class="dot"></span>{{ role.name }}
+            </label>
+            {% endfor %}
+          </div>
+          {% elif active_role %}
+          <span class="tag tag-neutral">{{ active_role.name }}</span>
+          {% endif %}
+          <form method="post" action="{{ url_for('auth.logout') }}">
+            <button class="btn btn-secondary" type="submit">Abmelden</button>
+          </form>
+        </div>
+      </header>
+      <main class="app-content">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+          <div class="flash-list">
+            {% for category, message in messages %}
+            <div class="flash flash-{{ category }}">{{ message }}</div>
+            {% endfor %}
+          </div>
+          {% endif %}
+        {% endwith %}
+        {% block content %}{% endblock %}
+      </main>
+    </div>
+  </div>
+  {% else %}
+  <main class="auth-shell">
+    {% block guest_content %}{% endblock %}
+  </main>
+  {% endif %}
+  <script src="{{ url_for('static', filename='js/htmx.min.js') }}"></script>
+</body>
+</html>

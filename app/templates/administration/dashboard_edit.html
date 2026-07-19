@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% from "dashboards/_widget.html" import render_widget %}
+{% block title %}Dashboard – {{ role.name }}{% endblock %}
+{% block page_title %}Dashboard: {{ role.name }}{% endblock %}
+{% block content %}
+<form method="post" action="{{ url_for('administration.dashboard_add_widget', role_id=role.id) }}" class="card elev-sm" style="max-width:420px; margin-bottom:var(--space-6);">
+  <div class="field">
+    <label>Widget hinzufügen</label>
+    <select class="input" name="widget_type">
+      {% for definition in widget_types %}
+      <option value="{{ definition.key }}">{{ definition.label }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <button type="submit" class="btn btn-primary">Hinzufügen</button>
+</form>
+
+<div class="dashboard-grid">
+  {% for widget in dashboard.widgets %}
+    {{ render_widget(widget, editable=true, role_id=role.id) }}
+  {% endfor %}
+</div>
+{% if not dashboard.widgets %}
+<p class="text-muted">Noch keine Widgets konfiguriert.</p>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}Rolle wählen – FireFlight2{% endblock %}
+{% block page_title %}Rolle wählen{% endblock %}
+{% block content %}
+<h2>In welcher Funktion arbeitest du heute?</h2>
+<p class="text-muted">Es werden nur die Rollen angezeigt, die dir zugewiesen sind.</p>
+<div class="role-card-grid">
+  {% for role in roles %}
+  <form method="post" action="{{ url_for('roles.activate', role_id=role.id) }}">
+    <button type="submit" class="role-card" style="width:100%; font: inherit;">
+      <span class="role-card-icon">{{ role.name[0] }}</span>
+      <span class="card-title">{{ role.name }}</span>
+      {% if role.description %}<span class="card-body">{{ role.description }}</span>{% endif %}
+    </button>
+  </form>
+  {% endfor %}
+</div>
+{% endblock %}

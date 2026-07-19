@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}Anmelden – FireFlight2{% endblock %}
+{% block guest_content %}
+<div class="auth-card">
+  <div class="auth-brand">
+    <div class="logo-badge">{% include "_logo_svg.html" %}</div>
+    <h1 style="margin:0; font-size:24px;">FireFlight2</h1>
+  </div>
+  <div class="card elev-md">
+    <h2 style="font-size:20px;">Anmelden</h2>
+    {% if error %}<div class="flash flash-error">{{ error }}</div>{% endif %}
+    <form method="post">
+      {{ form.hidden_tag() }}
+      <div class="field">
+        {{ form.identifier.label }}
+        {{ form.identifier(class_="input", autofocus=true) }}
+      </div>
+      <div class="field">
+        {{ form.password.label }}
+        {{ form.password(class_="input") }}
+      </div>
+      <button class="btn btn-primary btn-block" type="submit">Anmelden</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

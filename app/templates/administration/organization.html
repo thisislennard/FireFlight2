@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block title %}Organisation – Administration{% endblock %}
+{% block page_title %}Organisation{% endblock %}
+{% block content %}
+<form method="post" class="card elev-sm" style="max-width:480px;">
+  <div class="field"><label>Name</label><input class="input" type="text" name="name" value="{{ organization.name }}" {% if not has_permission('organization.edit') %}disabled{% endif %}></div>
+  <div class="field"><label>Kurzname</label><input class="input" type="text" name="short_name" value="{{ organization.short_name or '' }}" {% if not has_permission('organization.edit') %}disabled{% endif %}></div>
+  <div class="field"><label>Zeitzone</label><input class="input" type="text" name="timezone" value="{{ organization.timezone }}" {% if not has_permission('organization.edit') %}disabled{% endif %}></div>
+  {% if has_permission('organization.edit') %}
+  <button type="submit" class="btn btn-primary">Speichern</button>
+  {% endif %}
+</form>
+{% endblock %}
