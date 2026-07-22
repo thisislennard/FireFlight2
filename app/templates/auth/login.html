@@ -3,8 +3,8 @@
 {% block guest_content %}
 <div class="auth-card">
   <div class="auth-brand">
-    <div class="logo-badge">{% include "_logo_svg.html" %}</div>
-    <h1 style="margin:0; font-size:24px;">FireFlight2</h1>
+    <img class="auth-logo auth-logo-light" src="{{ url_for('static', filename='img/logo-light.png') }}" alt="FireFlight2">
+    <img class="auth-logo auth-logo-dark" src="{{ url_for('static', filename='img/logo-dark.png') }}" alt="FireFlight2">
   </div>
   <div class="card elev-md">
     <h2 style="font-size:20px;">Anmelden</h2>
