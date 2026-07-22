@@ -82,3 +82,23 @@ class DJIFlightHubClient(ABC):
     ) -> dict:
         """Startet die Live-Übertragung einer Kamera — echte Steuerfunktion, wirkt auf das reale Gerät
         (Kamera beginnt zu senden). Liefert `url` (WHEP/WebRTC-Wiedergabe-URL), `url_type`, `expire_ts`."""
+
+    @abstractmethod
+    def list_stream_forwarders(self, project_uuid: str) -> list[ExternalRecord]:
+        """Aktive Stream-Weiterleitungen (Bypass Streaming) eines Projekts. external_id = converter_id."""
+
+    @abstractmethod
+    def create_stream_forwarder(
+        self, project_uuid: str, sn: str, camera_index: str, converter_name: str, rtmp_url: str
+    ) -> dict:
+        """Legt eine neue Weiterleitung an einen Drittanbieter-RTMP-Server an — echte Steuerfunktion,
+        wirkt auf das reale Gerät. Nur RTMP (nicht GB28181), da für den FireFlight2-Anwendungsfall
+        ausreichend. Liefert `converter_id`. DJI-Limit: max. 20 Weiterleitungen pro Projekt."""
+
+    @abstractmethod
+    def set_stream_forwarder_enabled(self, project_uuid: str, converter_id: str, enabled: bool) -> None:
+        """Schaltet eine bestehende Weiterleitung an/aus, ohne sie zu löschen."""
+
+    @abstractmethod
+    def delete_stream_forwarder(self, project_uuid: str, converter_id: str) -> None:
+        ...

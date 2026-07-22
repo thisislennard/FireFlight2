@@ -9,6 +9,7 @@ _DRONE_SN = "1581F6Q8D242100CPWEK"
 _HANDHELD_SN = "0M3SEC1234A5678"
 _TASK_UUID = "3f8c9e10-3a4a-4e4e-9b8e-6f0b4a7c9d21"
 _WAYLINE_ID = "be903684-5423-45b9-b81d-0df2824be6f9"
+_CONVERTER_ID = "3b6e6f70-conv-0001-demo"
 
 _DOCK_RECORD = {
     "gateway": {
@@ -213,3 +214,36 @@ class MockDJIFlightHubClient(DJIFlightHubClient):
             "expire_ts": 0,
             "message": "Mock-Connector: kein echtes Gerät verbunden, daher keine echte Stream-URL.",
         }
+
+    def list_stream_forwarders(self, project_uuid: str) -> list[ExternalRecord]:
+        if project_uuid != _PROJECT_A:
+            return []
+        return [
+            ExternalRecord(
+                _CONVERTER_ID,
+                {
+                    "converter_name": "Demo-Weiterleitung",
+                    "converter_id": _CONVERTER_ID,
+                    "sn": _DOCK_SN,
+                    "camera_index": "165-0-7",
+                    "schema": "rtmp",
+                    "schema_option": {"url": "rtmp://mock.example.org/live/demo"},
+                    "auto_push_stream": True,
+                    "device_online_status": True,
+                    "device_callsign": "Dock Gerätehaus",
+                    "state": "running",
+                    "code": 0,
+                },
+            )
+        ]
+
+    def create_stream_forwarder(
+        self, project_uuid: str, sn: str, camera_index: str, converter_name: str, rtmp_url: str
+    ) -> dict:
+        return {"converter_id": _CONVERTER_ID, "message": "Mock-Connector: keine echte Weiterleitung angelegt."}
+
+    def set_stream_forwarder_enabled(self, project_uuid: str, converter_id: str, enabled: bool) -> None:
+        return None
+
+    def delete_stream_forwarder(self, project_uuid: str, converter_id: str) -> None:
+        return None

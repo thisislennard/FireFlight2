@@ -179,6 +179,75 @@
         {% endif %}
       {% endfor %}
     {% endfor %}
+
+    <h5 style="margin-top: var(--space-4);">Stream-Weiterleitung (RTMP an Drittsysteme, z. B. ELW-Dashboard)</h5>
+    {% if detail.stream_forwarders_error %}
+      <p class="card-body">{{ error_tag(detail.stream_forwarders_error) }}</p>
+    {% elif detail.stream_forwarders %}
+    <div class="table-wrap">
+    <table class="table" style="margin-bottom: var(--space-2);">
+      <thead><tr><th>Name</th><th>Gerät</th><th>Kamera</th><th>Ziel-URL</th><th>Status</th><th>Aktiv</th><th></th><th></th></tr></thead>
+      <tbody>
+        {% for f in detail.stream_forwarders %}
+        <tr>
+          <td>{{ f.payload.converter_name }}</td>
+          <td>{{ f.payload.device_callsign or f.payload.sn }}</td>
+          <td>{{ f.payload.camera_index }}</td>
+          <td class="tabular-nums">{{ (f.payload.schema_option or {}).url or "–" }}</td>
+          <td>
+            {% if f.payload.state == "running" %}<span class="tag tag-accent">Läuft</span>
+            {% elif f.payload.state == "failed" %}<span class="tag tag-outline">Fehler</span>
+            {% else %}<span class="tag tag-neutral">{{ f.payload.state }}</span>{% endif %}
+          </td>
+          <td>{{ "Ja" if f.payload.auto_push_stream else "Nein" }}</td>
+          <td>
+            <form method="post" action="{{ url_for('dji_flighthub.toggle_stream_forwarder_route', converter_id=f.external_id) }}">
+              <input type="hidden" name="project_uuid" value="{{ p.external_id }}">
+              <input type="hidden" name="enabled" value="{{ '0' if f.payload.auto_push_stream else '1' }}">
+              <button type="submit" class="btn btn-secondary">{{ "Deaktivieren" if f.payload.auto_push_stream else "Aktivieren" }}</button>
+            </form>
+          </td>
+          <td>
+            <form method="post" action="{{ url_for('dji_flighthub.delete_stream_forwarder_route', converter_id=f.external_id) }}">
+              <input type="hidden" name="project_uuid" value="{{ p.external_id }}">
+              <button type="submit" class="btn btn-danger">Löschen</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    </div>
+    {% else %}
+      <p class="card-meta">Keine aktiven Weiterleitungen.</p>
+    {% endif %}
+
+    {% for d in detail.devices %}
+      {% for role in ["gateway", "drone"] %}
+        {% set dev = d.payload.get(role) %}
+        {% if dev and dev.device_online_status %}
+          {% for cam in dev.camera_list or [] %}
+          <form method="post" action="{{ url_for('dji_flighthub.create_stream_forwarder_route') }}" class="card" style="margin-top: var(--space-2); max-width:480px;">
+            <input type="hidden" name="project_uuid" value="{{ p.external_id }}">
+            <input type="hidden" name="sn" value="{{ dev.sn }}">
+            <input type="hidden" name="camera_index" value="{{ cam.camera_index }}">
+            <div class="field">
+              <label>Name</label>
+              <input class="input" type="text" name="converter_name" placeholder="z. B. ELW-Dashboard" required>
+            </div>
+            <div class="field">
+              <label>Ziel-RTMP-URL</label>
+              <input class="input" type="text" name="rtmp_url" placeholder="rtmp://…" required>
+            </div>
+            <div class="form-actions">
+              <button type="submit" class="btn btn-secondary">Weiterleitung anlegen — {{ dev.callsign or dev.sn }} ({{ cam.camera_index }})</button>
+            </div>
+          </form>
+          {% endfor %}
+        {% endif %}
+      {% endfor %}
+    {% endfor %}
+    <p class="card-meta">DJI-Limit: max. 20 Weiterleitungen pro Projekt. Nur RTMP wird unterstützt (kein GB28181).</p>
     {% endif %}
 
     {% for sn, entry in detail.device_states.items() %}

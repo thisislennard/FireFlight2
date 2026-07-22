@@ -1,4 +1,4 @@
-from flask import Blueprint, current_app, jsonify, redirect, render_template, request, url_for
+from flask import Blueprint, current_app, flash, jsonify, redirect, render_template, request, url_for
 from flask_login import current_user, login_required
 
 from app.audit.service import log_event
@@ -90,3 +90,73 @@ def start_livestream_route():
         return jsonify({"ok": False, "error": str(exc)}), 502
     log_event("integration.livestream_started", result="success", object_type="device", object_id=sn)
     return jsonify({"ok": True, **result})
+
+
+@bp.route("/stream-forwarder", methods=["POST"])
+@login_required
+@permission_required("integrations.sync")
+def create_stream_forwarder_route():
+    config = get_or_create_config(current_user.organization_id)
+    client = get_client(config)
+    project_uuid = request.form.get("project_uuid", "")
+    sn = request.form.get("sn", "")
+    camera_index = request.form.get("camera_index", "")
+    converter_name = request.form.get("converter_name", "").strip()
+    rtmp_url = request.form.get("rtmp_url", "").strip()
+    if not (project_uuid and sn and camera_index and converter_name and rtmp_url):
+        flash("Name und Ziel-RTMP-URL sind erforderlich.", "error")
+        return redirect(url_for("dji_flighthub.status"))
+    try:
+        client.create_stream_forwarder(project_uuid, sn, camera_index, converter_name, rtmp_url)
+    except DJIFlightHubApiError as exc:
+        log_event("integration.stream_forwarder_failed", result="failed", object_type="device", object_id=sn)
+        flash(f"Stream-Weiterleitung fehlgeschlagen: {exc}", "error")
+        return redirect(url_for("dji_flighthub.status"))
+    log_event("integration.stream_forwarder_created", result="success", object_type="device", object_id=sn)
+    flash("Stream-Weiterleitung angelegt.")
+    return redirect(url_for("dji_flighthub.status"))
+
+
+@bp.route("/stream-forwarder/<converter_id>/toggle", methods=["POST"])
+@login_required
+@permission_required("integrations.sync")
+def toggle_stream_forwarder_route(converter_id):
+    config = get_or_create_config(current_user.organization_id)
+    client = get_client(config)
+    project_uuid = request.form.get("project_uuid", "")
+    enabled = request.form.get("enabled") == "1"
+    try:
+        client.set_stream_forwarder_enabled(project_uuid, converter_id, enabled)
+    except DJIFlightHubApiError as exc:
+        flash(f"Weiterleitung konnte nicht aktualisiert werden: {exc}", "error")
+        return redirect(url_for("dji_flighthub.status"))
+    log_event(
+        "integration.stream_forwarder_toggled",
+        result="success",
+        object_type="stream_forwarder",
+        object_id=converter_id,
+    )
+    flash("Weiterleitung aktualisiert.")
+    return redirect(url_for("dji_flighthub.status"))
+
+
+@bp.route("/stream-forwarder/<converter_id>/delete", methods=["POST"])
+@login_required
+@permission_required("integrations.sync")
+def delete_stream_forwarder_route(converter_id):
+    config = get_or_create_config(current_user.organization_id)
+    client = get_client(config)
+    project_uuid = request.form.get("project_uuid", "")
+    try:
+        client.delete_stream_forwarder(project_uuid, converter_id)
+    except DJIFlightHubApiError as exc:
+        flash(f"Weiterleitung konnte nicht gelöscht werden: {exc}", "error")
+        return redirect(url_for("dji_flighthub.status"))
+    log_event(
+        "integration.stream_forwarder_deleted",
+        result="success",
+        object_type="stream_forwarder",
+        object_id=converter_id,
+    )
+    flash("Weiterleitung gelöscht.")
+    return redirect(url_for("dji_flighthub.status"))

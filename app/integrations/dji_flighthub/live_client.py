@@ -27,7 +27,12 @@ class LiveDJIFlightHubClient(DJIFlightHubClient):
         self._language = language
 
     def _request(
-        self, path: str, params: dict | None = None, project_uuid: str | None = None, json_body: dict | None = None
+        self,
+        path: str,
+        params: dict | None = None,
+        project_uuid: str | None = None,
+        json_body: dict | None = None,
+        method: str | None = None,
     ) -> dict | list:
         url = f"{self._base_url}{_API_PREFIX}{path}"
         if params:
@@ -46,7 +51,7 @@ class LiveDJIFlightHubClient(DJIFlightHubClient):
         if json_body is not None:
             headers["Content-Type"] = "application/json"
             data = json.dumps(json_body).encode("utf-8")
-        req = urllib.request.Request(url, headers=headers, data=data)
+        req = urllib.request.Request(url, headers=headers, data=data, method=method)
         try:
             with urllib.request.urlopen(req, timeout=_REQUEST_TIMEOUT_SECONDS) as resp:
                 raw = resp.read().decode("utf-8", errors="replace")
@@ -158,3 +163,39 @@ class LiveDJIFlightHubClient(DJIFlightHubClient):
             json_body={"sn": sn, "camera_index": camera_index, "video_expire": video_expire, "quality_type": quality_type},
         )
         return data or {}
+
+    def list_stream_forwarders(self, project_uuid: str) -> list[ExternalRecord]:
+        data = self._request("/live-stream/converter", project_uuid=project_uuid)
+        items = (data or {}).get("list") or []
+        return [ExternalRecord(item.get("converter_id", ""), item) for item in items]
+
+    def create_stream_forwarder(
+        self, project_uuid: str, sn: str, camera_index: str, converter_name: str, rtmp_url: str
+    ) -> dict:
+        data = self._request(
+            "/live-stream/converter",
+            project_uuid=project_uuid,
+            json_body={
+                "converter_name": converter_name,
+                "sn": sn,
+                "camera_index": camera_index,
+                "schema": "rtmp",
+                "schema_option": {"url": rtmp_url},
+            },
+        )
+        return data or {}
+
+    def set_stream_forwarder_enabled(self, project_uuid: str, converter_id: str, enabled: bool) -> None:
+        self._request(
+            f"/live-stream/converter/{urllib.parse.quote(converter_id)}",
+            method="PUT",
+            project_uuid=project_uuid,
+            json_body={"auto_push_stream": enabled},
+        )
+
+    def delete_stream_forwarder(self, project_uuid: str, converter_id: str) -> None:
+        self._request(
+            f"/live-stream/converter/{urllib.parse.quote(converter_id)}",
+            method="DELETE",
+            project_uuid=project_uuid,
+        )

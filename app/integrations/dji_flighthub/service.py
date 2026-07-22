@@ -166,6 +166,8 @@ def _gather_project_detail(client: DJIFlightHubClient, project_uuid: str) -> dic
 
     detail["waylines"], detail["waylines_error"] = _safe(client.list_waylines, project_uuid)
 
+    detail["stream_forwarders"], detail["stream_forwarders_error"] = _safe(client.list_stream_forwarders, project_uuid)
+
     now = int(time.time())
     begin_at = now - TASK_LOOKBACK_SECONDS
     flight_tasks_by_device = {}
