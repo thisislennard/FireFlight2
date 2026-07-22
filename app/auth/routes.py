@@ -1,4 +1,4 @@
-from flask import Blueprint, redirect, render_template, request, session, url_for
+from flask import Blueprint, redirect, render_template, session, url_for
 from flask_login import current_user, login_required, login_user, logout_user
 
 from app.audit.service import log_event
@@ -7,11 +7,6 @@ from app.auth.services import AccountLockedError, authenticate
 from app.extensions import limiter
 
 bp = Blueprint("auth", __name__, url_prefix="/auth")
-
-
-def _is_safe_redirect(target: str | None) -> bool:
-    # Schutz vor Open Redirects: nur relative, selbst beginnende Pfade erlauben (spec-struktur.md Abschnitt 18).
-    return bool(target) and target.startswith("/") and not target.startswith("//")
 
 
 @bp.route("/login", methods=["GET", "POST"])
@@ -33,8 +28,7 @@ def login():
             else:
                 session.clear()  # Session-Fixation: Inhalt einer evtl. vorbestehenden Session verwerfen
                 login_user(user)
-                next_url = request.args.get("next")
-                return redirect(next_url if _is_safe_redirect(next_url) else url_for("roles.select"))
+                return redirect(url_for("roles.select"))
 
     return render_template("auth/login.html", form=form, error=error)
 
