@@ -16,16 +16,19 @@ class LiveDJIFlightHubClient(DJIFlightHubClient):
     """Echte Anbindung an die DJI-FlightHub-2-Business-OpenAPI (s. `docs/dji-flighthub2-api.md`).
 
     Ein Organization Key deckt die ganze Organisation ab, `project_uuid` wird pro Aufruf übergeben
-    (nicht im Konstruktor fest verdrahtet), da eine Organisation mehrere Projekte haben kann. Nur
-    lesende Endpunkte — Task anlegen, Gerätebefehle, Kamera-/RTK-/Livestream-Steuerung sind bewusst
-    nicht angebunden (s. Modul-Docstring in `base.py`)."""
+    (nicht im Konstruktor fest verdrahtet), da eine Organisation mehrere Projekte haben kann. Fast
+    ausschließlich lesende Endpunkte — einzige Ausnahme ist `start_livestream` (auf expliziten
+    Nutzerwunsch angebunden). Task anlegen, Gerätebefehle, Kamera-/RTK-Steuerung bleiben bewusst
+    außen vor (s. Modul-Docstring in `base.py`)."""
 
     def __init__(self, base_url: str, org_key: str, language: str = "en") -> None:
         self._base_url = base_url.rstrip("/")
         self._org_key = org_key
         self._language = language
 
-    def _request(self, path: str, params: dict | None = None, project_uuid: str | None = None) -> dict | list:
+    def _request(
+        self, path: str, params: dict | None = None, project_uuid: str | None = None, json_body: dict | None = None
+    ) -> dict | list:
         url = f"{self._base_url}{_API_PREFIX}{path}"
         if params:
             clean = {k: v for k, v in params.items() if v is not None}
@@ -39,7 +42,11 @@ class LiveDJIFlightHubClient(DJIFlightHubClient):
         }
         if project_uuid:
             headers["X-Project-Uuid"] = project_uuid
-        req = urllib.request.Request(url, headers=headers)
+        data = None
+        if json_body is not None:
+            headers["Content-Type"] = "application/json"
+            data = json.dumps(json_body).encode("utf-8")
+        req = urllib.request.Request(url, headers=headers, data=data)
         try:
             with urllib.request.urlopen(req, timeout=_REQUEST_TIMEOUT_SECONDS) as resp:
                 raw = resp.read().decode("utf-8", errors="replace")
@@ -141,3 +148,13 @@ class LiveDJIFlightHubClient(DJIFlightHubClient):
         data = self._request("/wayline", project_uuid=project_uuid)
         items = (data or {}).get("list") or []
         return [ExternalRecord(item.get("id", ""), item) for item in items]
+
+    def start_livestream(
+        self, project_uuid: str, sn: str, camera_index: str, quality_type: str = "adaptive", video_expire: int = 3600
+    ) -> dict:
+        data = self._request(
+            "/live-stream/start",
+            project_uuid=project_uuid,
+            json_body={"sn": sn, "camera_index": camera_index, "video_expire": video_expire, "quality_type": quality_type},
+        )
+        return data or {}

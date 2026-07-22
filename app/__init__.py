@@ -98,7 +98,11 @@ def _register_hooks(app: Flask) -> None:
         response.headers.setdefault("Referrer-Policy", "same-origin")
         response.headers.setdefault(
             "Content-Security-Policy",
-            "default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'",
+            # connect-src erlaubt zusaetzlich https: -- einzige Lockerung in der App, noetig fuer den
+            # WHEP-Signaling-Call (fetch) des Livestream-Players gegen den dynamischen DJI-Medienserver
+            # (wechselnde Adresse pro Stream, kein fester Host vorab bekannt). Betrifft nur fetch()/XHR,
+            # nicht Skript-/Style-/Bildquellen. S. app/static/js/whep-player.js.
+            "default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; connect-src 'self' https:",
         )
         return response
 

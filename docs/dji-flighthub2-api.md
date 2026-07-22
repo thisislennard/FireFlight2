@@ -52,7 +52,7 @@ gemeinsamen Prefix `/openapi/v0.1`.
 
 | Methode + Pfad | Zweck |
 |---|---|
-| `POST /live-stream/start` | Liefert direkt eine WHEP/WebRTC-Playback-URL zum Einbetten |
+| `POST /live-stream/start` | Liefert direkt eine WHEP/WebRTC-Playback-URL zum Einbetten — **implementiert** (2026-07-22, einzige Steuerfunktion in FireFlight2, s. `docs/architecture.md`) |
 | `POST /live-stream/converter` | RTMP- oder GB28181-Stream-Weiterleitung an Drittsysteme anlegen |
 | `GET /live-stream/converter` | Liste der Weiterleitungen mit Status (running/failed/initialized) |
 | `PUT /live-stream/converter/{id}` | Auto-Weiterleitung an/aus |

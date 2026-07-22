@@ -1,12 +1,14 @@
-from flask import Blueprint, current_app, redirect, render_template, request, url_for
+from flask import Blueprint, current_app, jsonify, redirect, render_template, request, url_for
 from flask_login import current_user, login_required
 
 from app.audit.service import log_event
 from app.core.security.permissions import permission_required
+from app.integrations.dji_flighthub.base import DJIFlightHubApiError
 from app.integrations.dji_flighthub.service import (
     credentials_present,
     dsgvo_acknowledged,
     gather_flighthub_overview,
+    get_client,
     get_credentials,
     get_or_create_config,
     run_sync,
@@ -68,3 +70,23 @@ def save_config_route():
         object_id=str(config.id),
     )
     return redirect(url_for("dji_flighthub.status"))
+
+
+@bp.route("/livestream/start", methods=["POST"])
+@login_required
+@permission_required("integrations.sync")
+def start_livestream_route():
+    config = get_or_create_config(current_user.organization_id)
+    client = get_client(config)
+    project_uuid = request.form.get("project_uuid", "")
+    sn = request.form.get("sn", "")
+    camera_index = request.form.get("camera_index", "")
+    if not (project_uuid and sn and camera_index):
+        return jsonify({"ok": False, "error": "project_uuid, sn und camera_index sind erforderlich."}), 400
+    try:
+        result = client.start_livestream(project_uuid, sn, camera_index)
+    except DJIFlightHubApiError as exc:
+        log_event("integration.livestream_failed", result="failed", object_type="device", object_id=sn)
+        return jsonify({"ok": False, "error": str(exc)}), 502
+    log_event("integration.livestream_started", result="success", object_type="device", object_id=sn)
+    return jsonify({"ok": True, **result})

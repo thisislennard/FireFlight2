@@ -2,6 +2,7 @@
 {% block title %}DJI FlightHub 2 – Integrationen{% endblock %}
 {% block page_title %}DJI FlightHub 2{% endblock %}
 {% block content %}
+<script defer src="{{ url_for('static', filename='js/whep-player.js') }}"></script>
 
 {% macro error_tag(message) %}
   <span class="tag tag-outline" title="{{ message }}">Fehler</span> <span class="card-meta">{{ message }}</span>
@@ -157,6 +158,28 @@
         {% endfor %}
       </tbody>
     </table>
+
+    {% if has_permission('integrations.sync') %}
+    <h5 style="margin-top: var(--space-3);">Livestream</h5>
+    {% for d in detail.devices %}
+      {% for role in ["gateway", "drone"] %}
+        {% set dev = d.payload.get(role) %}
+        {% if dev and dev.device_online_status %}
+          {% for cam in dev.camera_list or [] %}
+          <div data-livestream-block class="card" style="margin-top: var(--space-2); max-width:480px;">
+            <button type="button" class="btn btn-secondary" data-livestream-btn
+                    data-start-url="{{ url_for('dji_flighthub.start_livestream_route') }}"
+                    data-sn="{{ dev.sn }}" data-camera-index="{{ cam.camera_index }}" data-project-uuid="{{ p.external_id }}">
+              Livestream starten — {{ dev.callsign or dev.sn }} ({{ cam.camera_index }})
+            </button>
+            <div data-livestream-status class="card-meta"></div>
+            <video style="display:none; width:100%; background:#000;" autoplay playsinline muted controls></video>
+          </div>
+          {% endfor %}
+        {% endif %}
+      {% endfor %}
+    {% endfor %}
+    {% endif %}
 
     {% for sn, entry in detail.device_states.items() %}
     <div class="card" style="margin-top: var(--space-2);">

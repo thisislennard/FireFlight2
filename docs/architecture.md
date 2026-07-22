@@ -83,6 +83,19 @@ zuerst `list_projects()` auf und holt dann für jedes gefundene Projekt (bis `MA
 zu müssen. Ursprünglich gab es ein manuelles Projekt-UUID-Feld — auf Nutzerhinweis ("das muss doch auch
 projektübergreifend gehen") am selben Tag durch die automatische Multi-Projekt-Erkennung ersetzt.
 
+**Livestream als bewusste Ausnahme von "nur lesend":** Auf expliziten Nutzerwunsch ist
+`start_livestream()` (`POST /live-stream/start`) angebunden, obwohl es eine echte Steuerfunktion ist
+(startet die Kameraübertragung auf dem realen Gerät) — einzige Ausnahme vom sonst rein lesenden Scope.
+Route `POST /administration/integrations/dji-flighthub/livestream/start` liefert JSON (nicht Redirect),
+da das Ergebnis (WHEP/WebRTC-Wiedergabe-URL) clientseitig von einem selbstgeschriebenen WHEP-Player
+(`app/static/js/whep-player.js`, kein CDN/Fremdlib, reines `RTCPeerConnection` + `fetch`) verarbeitet
+wird, um das Video direkt einzubetten. Dafür wurde die CSP gezielt gelockert: `connect-src 'self'
+https:` zusätzlich zum sonst strikten `default-src 'self'` (s. `app/__init__.py: _security_headers`),
+da der von DJI zurückgelieferte Medienserver-Host pro Stream wechselt und nicht vorab bekannt ist —
+einzige CSP-Lockerung in der ganzen App, bewusst nur für `connect-src` (Skript-/Style-/Bildquellen
+bleiben unverändert `'self'`). Kein serverseitiger "Stop"-Aufruf, da die DJI-API keinen dokumentiert —
+der Stream-Token läuft nach `video_expire` (Default 3600s) ab.
+
 `get_client()` (`app/integrations/dji_flighthub/service.py`) liefert `LiveDJIFlightHubClient` nur, wenn
 **alle drei** Bedingungen erfüllt sind: Not-Aus nicht aktiv, Org Key + Projekt-UUID vorhanden (DB oder
 Env), **und** `settings.dsgvo_ack=true` — sonst immer `MockDJIFlightHubClient`. So kann eine echte

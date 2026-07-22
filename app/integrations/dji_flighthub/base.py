@@ -75,3 +75,10 @@ class DJIFlightHubClient(ABC):
     @abstractmethod
     def list_waylines(self, project_uuid: str) -> list[ExternalRecord]:
         ...
+
+    @abstractmethod
+    def start_livestream(
+        self, project_uuid: str, sn: str, camera_index: str, quality_type: str = "adaptive", video_expire: int = 3600
+    ) -> dict:
+        """Startet die Live-Übertragung einer Kamera — echte Steuerfunktion, wirkt auf das reale Gerät
+        (Kamera beginnt zu senden). Liefert `url` (WHEP/WebRTC-Wiedergabe-URL), `url_type`, `expire_ts`."""

@@ -203,3 +203,13 @@ class MockDJIFlightHubClient(DJIFlightHubClient):
                 },
             )
         ]
+
+    def start_livestream(
+        self, project_uuid: str, sn: str, camera_index: str, quality_type: str = "adaptive", video_expire: int = 3600
+    ) -> dict:
+        return {
+            "url": "",
+            "url_type": "mock",
+            "expire_ts": 0,
+            "message": "Mock-Connector: kein echtes Gerät verbunden, daher keine echte Stream-URL.",
+        }

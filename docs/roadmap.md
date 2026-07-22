@@ -40,14 +40,16 @@ echte DJI-Produktivintegration, Mandantenfähigkeit, Microservices — siehe `CL
   ein Organization Key deckt die ganze Organisation ab, alle DJI-Projekte werden automatisch über
   `list_projects()` entdeckt (kein manuelles Eintragen einer Projekt-UUID mehr nötig), Übersichtsseite
   zeigt jedes Projekt mit eigenem Geräte/HMS/Waylines/Flugaufgaben-Abschnitt (Cap `MAX_PROJECTS=5`).
-  **Noch offen:** mit
-  echten Zugangsdaten gegen die echte Organisation verifizieren — ein Testlauf mit einem ungültigen
-  Test-Key ergab, dass `https://fh.dji.com/openapi/v0.1/system_status` eine HTML-Seite statt JSON
-  liefert (Fehlerbehandlung dafür ist vorhanden, aber die Ursache noch nicht geklärt: ungültiger Key
-  oder falsche Basis-URL/regionsspezifisches Gateway, wie v1 das teils vermutet hatte) — sobald echte
-  Zugangsdaten vorliegen, Base-URL im Formular ggf. auf die per Browser-DevTools ermittelte echte
-  API-Basis-URL umstellen. Steuerendpunkte (Task anlegen, Gerätebefehle, Kamera/RTK/Livestream) bewusst
-  nicht angebunden.
+  **Mit echten Zugangsdaten verifiziert** (2026-07-22): `https://fh.dji.com` ist nachweislich nur die
+  Web-Oberfläche (S3/CloudFront-Static-Hosting), nicht die API — echte, account-/regionsspezifische
+  Basis-URL (`https://es-flight-api-us.djigate.com` im konkreten Fall) per Browser-DevTools ermittelt
+  und im Formular hinterlegt, seitdem liefert die Übersichtsseite echte Projekte der Organisation. Noch
+  keine Geräte in FlightHub 2 gebunden (Organisation hat aktuell 0 Geräte — kein FireFlight2-Problem,
+  DJI-API liefert dafür korrekt `{"code":0,"data":{"list":null}}`, vom Code korrekt als leere Liste
+  behandelt). **Livestream** (`start_livestream`, `POST /live-stream/start`) auf Nutzerwunsch als einzige
+  Ausnahme vom rein lesenden Scope ergänzt, inkl. eingebettetem WHEP/WebRTC-Player
+  (`app/static/js/whep-player.js`) und gezielt gelockerter CSP (`connect-src` s. `docs/architecture.md`).
+  Übrige Steuerendpunkte (Task anlegen, Gerätebefehle, Kamera/RTK) weiterhin bewusst nicht angebunden.
 - **2FA/TOTP**: in spec-struktur.md nicht erwähnt, in v1 vorhanden — Entscheidung mit Nutzer offen
 - **Dark-Mode-Farbwerte**: aktuell pragmatisch aus den Neutral-/Accent-Ramps abgeleitet (`app/static/css/app.css`,
   `:root[data-theme="dark"]`), keine vom Nutzer gelieferten exakten Werte — bei Bedarf nachschärfen
