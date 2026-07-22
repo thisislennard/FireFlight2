@@ -29,7 +29,6 @@ def status():
         overview=overview,
         credentials_present=credentials_present(config),
         dsgvo_acknowledged=dsgvo_acknowledged(config),
-        project_uuid=creds["project_uuid"],
         base_url=creds["base_url"],
         org_key_set=bool(creds["org_key"]),
         kill_switch_enabled=current_app.config.get("DJI_FLIGHTHUB_ENABLED", True),
@@ -59,7 +58,6 @@ def save_config_route():
     save_config(
         config,
         org_key=request.form.get("org_key", "").strip(),
-        project_uuid=request.form.get("project_uuid", ""),
         base_url=request.form.get("base_url", ""),
         dsgvo_ack=request.form.get("dsgvo_ack") == "on",
     )

@@ -64,15 +64,24 @@ tatsächliches SVG-Icon gerendert. Eine vollständige Lucide-Einbindung (Sprite 
 gegenüber Kern-Funktionalität (Auth, Rollen, Dashboards, DJI-Grundstruktur) nachrangig — siehe
 `docs/roadmap.md`.
 
-## DJI-Integration: echte Anbindung, Zugangsdaten über die Administrationsoberfläche
+## DJI-Integration: echte Anbindung, projektübergreifend, Zugangsdaten über die Administrationsoberfläche
 `IntegrationConfig.settings` (JSONB) speichert pro Organisation Organization Key (X-User-Token),
-Projekt-UUID (X-Project-Uuid), Base-URL und die DSGVO-Bestätigung — gepflegt über ein Formular auf
+Base-URL und die DSGVO-Bestätigung — gepflegt über ein Formular auf
 `/administration/integrations/dji-flighthub/` (Berechtigung `integrations.configure`), analog zu v1s
 Einstellungsseite. Das Org-Key-Feld wird im Formular nie mit dem echten Wert vorausgefüllt (Passwort-
 Input, leer lassen = unverändert lassen) — Zugangsdaten landen dadurch zwar in der DB, aber nie
-hartkodiert im Quellcode (spec-struktur.md Abschnitt 4). `DJI_FLIGHTHUB_ORG_KEY`/`_PROJECT_UUID`/
-`_BASE_URL`-Umgebungsvariablen sind nur ein optionaler Deployment-Default, falls die DB-Werte leer sind;
+hartkodiert im Quellcode (spec-struktur.md Abschnitt 4). `DJI_FLIGHTHUB_ORG_KEY`/`_BASE_URL`-
+Umgebungsvariablen sind nur ein optionaler Deployment-Default, falls die DB-Werte leer sind;
 `DJI_FLIGHTHUB_ENABLED` (Default `true`) ist ein globaler Not-Aus-Schalter unabhängig vom DB-Zustand.
+
+**Bewusst keine Projekt-UUID im Formular:** Ein Organization Key deckt die ganze Organisation ab, die
+kann mehrere DJI-Projekte haben (`GET /project`, org-weit). `LiveDJIFlightHubClient` bekommt daher keine
+feste `project_uuid` mehr im Konstruktor — jede projektgebundene Methode (Geräte-Detail, Telemetrie,
+HMS, Flugaufgaben, Waylines) nimmt `project_uuid` als Parameter. `gather_flighthub_overview()` ruft
+zuerst `list_projects()` auf und holt dann für jedes gefundene Projekt (bis `MAX_PROJECTS`) über
+`list_project_devices()` die zugehörigen Geräte, statt eine einzelne UUID zu erraten/manuell verlangen
+zu müssen. Ursprünglich gab es ein manuelles Projekt-UUID-Feld — auf Nutzerhinweis ("das muss doch auch
+projektübergreifend gehen") am selben Tag durch die automatische Multi-Projekt-Erkennung ersetzt.
 
 `get_client()` (`app/integrations/dji_flighthub/service.py`) liefert `LiveDJIFlightHubClient` nur, wenn
 **alle drei** Bedingungen erfüllt sind: Not-Aus nicht aktiv, Org Key + Projekt-UUID vorhanden (DB oder

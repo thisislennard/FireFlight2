@@ -23,6 +23,11 @@ class DJIFlightHubClient(ABC):
     und `LiveDJIFlightHubClient` (echte Business-OpenAPI, s. `docs/dji-flighthub2-api.md`). Alle
     Methoden hier sind lesend — Endpunkte, die auf echter Hardware wirken (Task anlegen, Gerätebefehle,
     Kamera/RTK/Livestream-Steuerung), sind bewusst noch nicht angebunden.
+
+    Eine Organisation (ein Organization Key) kann mehrere DJI-Projekte haben (`list_projects`, org-weit,
+    kein `project_uuid` nötig). Die meisten übrigen Endpunkte sind projektgebunden — `project_uuid`
+    kommt daher als expliziter Parameter, nicht als fester Konstruktor-Wert, damit dieselbe
+    Client-Instanz alle Projekte einer Organisation abfragen kann.
     """
 
     @abstractmethod
@@ -30,37 +35,43 @@ class DJIFlightHubClient(ABC):
         ...
 
     @abstractmethod
-    def list_devices(self) -> list[ExternalRecord]:
-        """Geräte (Dock+Drohne) organisationsweit. payload enthält die vollen `gateway`/`drone`-Felder."""
+    def list_projects(self) -> list[ExternalRecord]:
+        """Alle Projekte der Organisation. Org-weit, kein `project_uuid` nötig."""
 
     @abstractmethod
-    def list_projects(self) -> list[ExternalRecord]:
-        ...
+    def list_devices(self) -> list[ExternalRecord]:
+        """Geräte (Dock+Drohne) organisationsweit, projektübergreifend. payload enthält die vollen
+        `gateway`/`drone`-Felder."""
+
+    @abstractmethod
+    def list_project_devices(self, project_uuid: str) -> list[ExternalRecord]:
+        """Geräte, die einem bestimmten Projekt zugeordnet sind — Grundlage dafür, welche Geräte pro
+        Projekt mit Detail (Telemetrie/HMS/Flugaufgaben) abgefragt werden."""
 
     @abstractmethod
     def get_system_status(self) -> dict:
         ...
 
     @abstractmethod
-    def get_device_state(self, device_sn: str) -> dict | None:
+    def get_device_state(self, project_uuid: str, device_sn: str) -> dict | None:
         """Volle Telemetrie eines Geräts. Feldumfang ist modellabhängig (Dock 1/2, Matrice-Serie, RC, …)."""
 
     @abstractmethod
-    def get_hms(self, device_sn_list: list[str] | None = None) -> list[ExternalRecord]:
+    def get_hms(self, project_uuid: str, device_sn_list: list[str] | None = None) -> list[ExternalRecord]:
         """Health-Management-Alerts je Gerät. external_id = device_sn, payload = Alert-Liste."""
 
     @abstractmethod
-    def list_flight_tasks(self, sn: str, begin_at: int, end_at: int) -> list[ExternalRecord]:
+    def list_flight_tasks(self, project_uuid: str, sn: str, begin_at: int, end_at: int) -> list[ExternalRecord]:
         """Flugaufgaben eines Docks im Zeitraum [begin_at, end_at] (Unix-Timestamps)."""
 
     @abstractmethod
-    def get_flight_task_media(self, task_uuid: str) -> list[ExternalRecord]:
+    def get_flight_task_media(self, project_uuid: str, task_uuid: str) -> list[ExternalRecord]:
         ...
 
     @abstractmethod
-    def get_flight_task_track(self, task_uuid: str) -> dict | None:
+    def get_flight_task_track(self, project_uuid: str, task_uuid: str) -> dict | None:
         ...
 
     @abstractmethod
-    def list_waylines(self) -> list[ExternalRecord]:
+    def list_waylines(self, project_uuid: str) -> list[ExternalRecord]:
         ...

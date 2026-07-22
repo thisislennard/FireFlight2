@@ -14,9 +14,11 @@ from app.integrations.dji_flighthub.models import ExternalReference, Integration
 
 INTEGRATION_KEY = "dji_flighthub"
 
-# Caps für die "alles auf einmal"-Übersichtsseite — verhindert, dass eine große Organisation
-# hunderte API-Calls auf einmal auslöst. Rein administrative/Explorationszwecke, keine Vollsynchronisierung.
-MAX_DEVICES_WITH_DETAIL = 10
+# Caps für die "alles auf einmal"-Übersichtsseite — verhindert, dass eine große Organisation mit
+# vielen Projekten/Geräten hunderte API-Calls auf einmal auslöst. Rein administrative/
+# Explorationszwecke, keine Vollsynchronisierung.
+MAX_PROJECTS = 5
+MAX_DEVICES_WITH_DETAIL_PER_PROJECT = 10
 MAX_TASKS_PER_DEVICE = 5
 MAX_TASKS_WITH_DETAIL_PER_DEVICE = 3
 TASK_LOOKBACK_SECONDS = 90 * 24 * 3600
@@ -40,34 +42,31 @@ def dsgvo_acknowledged(config: IntegrationConfig) -> bool:
 def get_credentials(config: IntegrationConfig) -> dict:
     """Zugangsdaten: DB-Werte (über die Administrationsoberfläche gepflegt) haben Vorrang,
     `DJI_FLIGHTHUB_*`-Umgebungsvariablen dienen nur als optionaler Deployment-Default (z. B. Docker),
-    damit ein frisch aufgesetzter Container nicht zwingend einmal durch die UI konfiguriert werden muss."""
+    damit ein frisch aufgesetzter Container nicht zwingend einmal durch die UI konfiguriert werden muss.
+    Kein `project_uuid` mehr hier — eine Organisation kann mehrere Projekte haben, die werden über
+    `list_projects()` automatisch entdeckt statt manuell eingetragen."""
     settings = config.settings or {}
     cfg = current_app.config
     return {
         "org_key": settings.get("org_key") or cfg.get("DJI_FLIGHTHUB_ORG_KEY", ""),
-        "project_uuid": settings.get("project_uuid") or cfg.get("DJI_FLIGHTHUB_PROJECT_UUID", ""),
         "base_url": settings.get("base_url") or cfg.get("DJI_FLIGHTHUB_BASE_URL") or "https://fh.dji.com",
     }
 
 
 def credentials_present(config: IntegrationConfig) -> bool:
-    creds = get_credentials(config)
-    return bool(creds["org_key"] and creds["project_uuid"])
+    return bool(get_credentials(config)["org_key"])
 
 
-def save_config(
-    config: IntegrationConfig, *, org_key: str | None, project_uuid: str, base_url: str, dsgvo_ack: bool
-) -> IntegrationConfig:
+def save_config(config: IntegrationConfig, *, org_key: str | None, base_url: str, dsgvo_ack: bool) -> IntegrationConfig:
     """Speichert Zugangsdaten + DSGVO-Bestätigung. `org_key` wird im Formular nie vorausgefüllt
     (Passwortfeld) — leer gelassen heißt „unverändert lassen", nicht „löschen"."""
     settings = dict(config.settings or {})
     if org_key:
         settings["org_key"] = org_key
-    settings["project_uuid"] = project_uuid.strip()
     settings["base_url"] = base_url.strip() or "https://fh.dji.com"
     settings["dsgvo_ack"] = dsgvo_ack
     config.settings = settings
-    config.is_enabled = bool(settings.get("org_key") and settings["project_uuid"])
+    config.is_enabled = bool(settings.get("org_key"))
     db.session.commit()
     return config
 
@@ -76,7 +75,7 @@ def get_client(config: IntegrationConfig | None = None) -> DJIFlightHubClient:
     kill_switch_off = not current_app.config.get("DJI_FLIGHTHUB_ENABLED", True)
     if not kill_switch_off and config is not None and credentials_present(config) and dsgvo_acknowledged(config):
         creds = get_credentials(config)
-        return LiveDJIFlightHubClient(base_url=creds["base_url"], org_key=creds["org_key"], project_uuid=creds["project_uuid"])
+        return LiveDJIFlightHubClient(base_url=creds["base_url"], org_key=creds["org_key"])
     return MockDJIFlightHubClient()
 
 
@@ -148,8 +147,46 @@ def _device_sns_from_records(devices: list[ExternalRecord] | None) -> list[str]:
     return sns
 
 
+def _gather_project_detail(client: DJIFlightHubClient, project_uuid: str) -> dict:
+    detail: dict = {}
+    detail["devices"], detail["devices_error"] = _safe(client.list_project_devices, project_uuid)
+    device_sns = _device_sns_from_records(detail["devices"])[:MAX_DEVICES_WITH_DETAIL_PER_PROJECT]
+    detail["device_sns"] = device_sns
+
+    detail["hms"], detail["hms_error"] = _safe(client.get_hms, project_uuid, device_sns or None)
+
+    device_states = {}
+    for sn in device_sns:
+        state, error = _safe(client.get_device_state, project_uuid, sn)
+        device_states[sn] = {"state": state, "error": error}
+    detail["device_states"] = device_states
+
+    detail["waylines"], detail["waylines_error"] = _safe(client.list_waylines, project_uuid)
+
+    now = int(time.time())
+    begin_at = now - TASK_LOOKBACK_SECONDS
+    flight_tasks_by_device = {}
+    for sn in device_sns:
+        tasks, error = _safe(client.list_flight_tasks, project_uuid, sn, begin_at, now)
+        entry: dict = {"tasks": [], "error": error}
+        for record in (tasks or [])[:MAX_TASKS_PER_DEVICE]:
+            entry["tasks"].append(
+                {"uuid": record.external_id, "payload": record.payload, "media": None, "media_error": None, "track": None, "track_error": None}
+            )
+        for task_info in entry["tasks"][:MAX_TASKS_WITH_DETAIL_PER_DEVICE]:
+            media, media_error = _safe(client.get_flight_task_media, project_uuid, task_info["uuid"])
+            task_info["media"], task_info["media_error"] = media, media_error
+            track, track_error = _safe(client.get_flight_task_track, project_uuid, task_info["uuid"])
+            task_info["track"], task_info["track_error"] = track, track_error
+        flight_tasks_by_device[sn] = entry
+    detail["flight_tasks_by_device"] = flight_tasks_by_device
+    return detail
+
+
 def gather_flighthub_overview(config: IntegrationConfig) -> dict:
-    """Ruft alle lesenden Endpunkte auf einmal ab, für die Administrations-Übersichtsseite.
+    """Ruft alle lesenden Endpunkte auf einmal ab, für die Administrations-Übersichtsseite —
+    projektübergreifend: `list_projects()` entdeckt alle Projekte der Organisation automatisch,
+    für jedes (bis `MAX_PROJECTS`) werden die projektgebundenen Endpunkte einzeln abgefragt.
 
     Jeder Abschnitt ist unabhängig fehlertolerant (`_safe`) — ein einzelner fehlschlagender Endpunkt
     (z. B. weil ein Gerät offline ist) darf die restliche Seite nicht mitreißen."""
@@ -157,39 +194,16 @@ def gather_flighthub_overview(config: IntegrationConfig) -> dict:
     overview: dict = {"client_type": "live" if isinstance(client, LiveDJIFlightHubClient) else "mock"}
 
     overview["system_status"], overview["system_status_error"] = _safe(client.get_system_status)
-    overview["projects"], overview["projects_error"] = _safe(client.list_projects)
     overview["devices"], overview["devices_error"] = _safe(client.list_devices)
+    overview["projects"], overview["projects_error"] = _safe(client.list_projects)
 
-    device_sns = _device_sns_from_records(overview["devices"])[:MAX_DEVICES_WITH_DETAIL]
-    overview["device_sns"] = device_sns
+    projects = (overview["projects"] or [])[:MAX_PROJECTS]
+    overview["projects_truncated"] = bool(overview["projects"]) and len(overview["projects"]) > MAX_PROJECTS
 
-    overview["hms"], overview["hms_error"] = _safe(client.get_hms, device_sns or None)
-
-    device_states = {}
-    for sn in device_sns:
-        state, error = _safe(client.get_device_state, sn)
-        device_states[sn] = {"state": state, "error": error}
-    overview["device_states"] = device_states
-
-    overview["waylines"], overview["waylines_error"] = _safe(client.list_waylines)
-
-    now = int(time.time())
-    begin_at = now - TASK_LOOKBACK_SECONDS
-    flight_tasks_by_device = {}
-    for sn in device_sns:
-        tasks, error = _safe(client.list_flight_tasks, sn, begin_at, now)
-        entry: dict = {"tasks": [], "error": error}
-        for record in (tasks or [])[:MAX_TASKS_PER_DEVICE]:
-            entry["tasks"].append(
-                {"uuid": record.external_id, "payload": record.payload, "media": None, "media_error": None, "track": None, "track_error": None}
-            )
-        for task_info in entry["tasks"][:MAX_TASKS_WITH_DETAIL_PER_DEVICE]:
-            media, media_error = _safe(client.get_flight_task_media, task_info["uuid"])
-            task_info["media"], task_info["media_error"] = media, media_error
-            track, track_error = _safe(client.get_flight_task_track, task_info["uuid"])
-            task_info["track"], task_info["track_error"] = track, track_error
-        flight_tasks_by_device[sn] = entry
-    overview["flight_tasks_by_device"] = flight_tasks_by_device
+    project_details = {}
+    for project in projects:
+        project_details[project.external_id] = _gather_project_detail(client, project.external_id)
+    overview["project_details"] = project_details
     overview["task_lookback_days"] = TASK_LOOKBACK_SECONDS // 86400
     overview["max_tasks_with_detail_per_device"] = MAX_TASKS_WITH_DETAIL_PER_DEVICE
 

@@ -25,6 +25,9 @@
   <p class="card-body">
     Solange Zugangsdaten fehlen, die DSGVO-Bestätigung nicht gesetzt ist, <strong>oder</strong> der globale Not-Aus aktiv ist, liefert diese Seite ausschließlich Demo-Daten — es werden dann keine echten Anfragen an DJI gestellt.
   </p>
+  <p class="card-body">
+    Ein Organization Key gilt für die ganze Organisation — Projekte werden automatisch über die API entdeckt (unten), keine manuelle Projekt-UUID nötig.
+  </p>
 </div>
 
 {% if has_permission('integrations.configure') %}
@@ -33,10 +36,6 @@
   <div class="field">
     <label>Organization Key <span class="card-meta">(X-User-Token{% if org_key_set %}, aktuell gesetzt – leer lassen, um ihn zu behalten{% endif %})</span></label>
     <input class="input" type="password" name="org_key" autocomplete="off" placeholder="{{ '••••••••' if org_key_set else '' }}">
-  </div>
-  <div class="field">
-    <label>Projekt-UUID</label>
-    <input class="input" type="text" name="project_uuid" value="{{ project_uuid }}" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx">
   </div>
   <div class="field">
     <label>Base-URL</label>
@@ -53,7 +52,7 @@
     <button type="submit" class="btn btn-primary">Speichern</button>
   </div>
   <p class="card-meta">
-    Organization Key: FlightHub 2 → Meine Organisation → Einstellungen → FlightHub Sync. Projekt-UUID: aus der Projektliste (<code>data.list.uuid</code>) bzw. aus der Projekt-Editor-URL.
+    Organization Key: FlightHub 2 → Meine Organisation → Einstellungen → FlightHub Sync.
   </p>
 </form>
 {% endif %}
@@ -70,33 +69,13 @@
   {% endif %}
 </div>
 
-<h3>Projekte</h3>
-{% if overview.projects_error %}
-  <p>{{ error_tag(overview.projects_error) }}</p>
-{% elif not overview.projects %}
-  <p class="card-meta">Keine Projekte gefunden.</p>
-{% else %}
-<table class="table" style="margin-bottom: var(--space-6);">
-  <thead><tr><th>Name</th><th>UUID</th><th>Standort</th></tr></thead>
-  <tbody>
-    {% for p in overview.projects %}
-    <tr>
-      <td>{{ p.payload.name }}<br><span class="card-meta">{{ p.payload.introduction }}</span></td>
-      <td class="tabular-nums">{{ p.external_id }}</td>
-      <td>{% set c = p.payload.project_work_center_point %}{% if c %}{{ "%.4f"|format(c.latitude) }}, {{ "%.4f"|format(c.longitude) }}{% endif %}</td>
-    </tr>
-    {% endfor %}
-  </tbody>
-</table>
-{% endif %}
-
-<h3>Geräte</h3>
+<h3>Alle Geräte (organisationsweit)</h3>
 {% if overview.devices_error %}
   <p>{{ error_tag(overview.devices_error) }}</p>
 {% elif not overview.devices %}
   <p class="card-meta">Keine Geräte gefunden.</p>
 {% else %}
-<div class="table-wrap" style="margin-bottom: var(--space-2);">
+<div class="table-wrap" style="margin-bottom: var(--space-6);">
 <table class="table">
   <thead><tr><th>Rolle</th><th>SN</th><th>Name</th><th>Modell</th><th>Status</th><th>Modus</th><th>Kameras</th></tr></thead>
   <tbody>
@@ -130,109 +109,162 @@
   </tbody>
 </table>
 </div>
-
-{% for sn, entry in overview.device_states.items() %}
-<div class="card" style="margin-bottom: var(--space-2);">
-  <div class="card-title" style="font-size:14px;">Telemetrie {{ sn }}</div>
-  {% if entry.error %}
-    <p class="card-body">{{ error_tag(entry.error) }}</p>
-  {% elif entry.state %}
-    <pre class="card-body" style="white-space:pre-wrap; font-size:12px;">{{ entry.state.device_state | tojson(indent=2) }}</pre>
-  {% else %}
-    <p class="card-meta">Keine Telemetrie verfügbar (Gerät offline oder Modell ohne State-Unterstützung).</p>
-  {% endif %}
-</div>
-{% endfor %}
-<p class="card-meta" style="margin-bottom: var(--space-6);">Feldumfang der Telemetrie ist modellabhängig — Dock 1/2, Matrice-Serie und Fernsteuerungen liefern unterschiedliche Felder.</p>
 {% endif %}
 
-<h3>Health-Management (HMS)</h3>
-{% if overview.hms_error %}
-  <p>{{ error_tag(overview.hms_error) }}</p>
-{% elif not overview.hms or overview.hms | selectattr("payload.list") | list | length == 0 %}
-  <p class="card-meta" style="margin-bottom: var(--space-6);">Keine aktiven Meldungen.</p>
+<h3>Projekte</h3>
+{% if overview.projects_error %}
+  <p>{{ error_tag(overview.projects_error) }}</p>
+{% elif not overview.projects %}
+  <p class="card-meta" style="margin-bottom: var(--space-6);">Keine Projekte gefunden.</p>
 {% else %}
-<table class="table" style="margin-bottom: var(--space-6);">
-  <thead><tr><th>Gerät</th><th>Level</th><th>Modul</th><th>Ort</th><th>Meldung</th></tr></thead>
-  <tbody>
-    {% for h in overview.hms %}
-      {% for alert in (h.payload.list or []) %}
-      <tr>
-        <td class="tabular-nums">{{ h.external_id }}</td>
-        <td>
-          {% if alert.level == "warning" %}<span class="tag tag-outline">Warnung</span>
-          {% elif alert.level == "reminder" %}<span class="tag tag-neutral">Hinweis</span>
-          {% else %}<span class="tag tag-neutral">Info</span>{% endif %}
-        </td>
-        <td>{{ alert.module }}</td>
-        <td>{{ "Boden" if alert.in_the_key == "on_the_ground" else "Luft" if alert.in_the_key == "in_the_sky" else "–" }}</td>
-        <td>{{ alert.message }}</td>
-      </tr>
-      {% endfor %}
-    {% endfor %}
-  </tbody>
-</table>
-{% endif %}
+<p class="card-meta">
+  {{ overview.projects | length }} Projekt(e) gefunden{% if overview.projects_truncated %}, hier auf die ersten {{ overview.project_details | length }} beschränkt{% endif %} — jedes Projekt unten mit eigenem Abschnitt (Geräte/Telemetrie/HMS/Waylines/Flugaufgaben sind in DJI FlightHub projektgebunden).
+</p>
 
-<h3>Flugrouten (Waylines)</h3>
-{% if overview.waylines_error %}
-  <p>{{ error_tag(overview.waylines_error) }}</p>
-{% elif not overview.waylines %}
-  <p class="card-meta" style="margin-bottom: var(--space-6);">Keine Flugrouten gefunden.</p>
-{% else %}
-<table class="table" style="margin-bottom: var(--space-6);">
-  <thead><tr><th>Name</th><th>Gerätemodell</th><th>Typ</th><th>Aktualisiert</th></tr></thead>
-  <tbody>
-    {% for w in overview.waylines %}
-    <tr>
-      <td>{{ w.payload.name }}</td>
-      <td>{{ w.payload.device_model_key }}</td>
-      <td>{{ w.payload.template_types | join(", ") if w.payload.template_types else "–" }}</td>
-      <td>{{ w.payload.update_time }}</td>
-    </tr>
-    {% endfor %}
-  </tbody>
-</table>
-{% endif %}
+{% for p in overview.projects %}
+<div class="card elev-sm" style="margin-bottom: var(--space-6);">
+  <div class="card-title">{{ p.payload.name }}</div>
+  <div class="card-meta">{{ p.payload.introduction }}</div>
+  <div class="card-meta">UUID: <span class="tabular-nums">{{ p.external_id }}</span>{% set c = p.payload.project_work_center_point %}{% if c %} · Standort: {{ "%.4f"|format(c.latitude) }}, {{ "%.4f"|format(c.longitude) }}{% endif %}</div>
 
-<h3>Flugaufgaben je Dock ({{ overview.task_lookback_days }} Tage zurück)</h3>
-<p class="card-meta">Aus Rücksicht auf die DJI-API werden je Dock max. {{ overview.max_tasks_with_detail_per_device }} Aufgaben mit Medien/Track im Detail geladen — ältere/weitere Aufgaben erscheinen nur in der Liste.</p>
-{% if not overview.flight_tasks_by_device %}
-  <p class="card-meta" style="margin-bottom: var(--space-6);">Keine Docks mit Flugaufgaben-Unterstützung gefunden (reine Handheld-Drohnen ohne Dock haben keine FlightHub-Flugaufgaben).</p>
-{% endif %}
-{% for sn, entry in overview.flight_tasks_by_device.items() %}
-<div class="card elev-sm" style="margin-bottom: var(--space-4);">
-  <div class="card-title" style="font-size:14px;">Dock {{ sn }}</div>
-  {% if entry.error %}
-    <p class="card-body">{{ error_tag(entry.error) }}</p>
-  {% elif not entry.tasks %}
-    <p class="card-meta">Keine Flugaufgaben im Zeitraum.</p>
+  {% set detail = overview.project_details.get(p.external_id) %}
+  {% if not detail %}
+    <p class="card-meta">Nicht im Detail geladen (Limit von {{ overview.project_details | length }} gleichzeitig geladenen Projekten erreicht).</p>
   {% else %}
-    {% for task in entry.tasks %}
+
+  <h4 style="margin-top: var(--space-4);">Geräte im Projekt</h4>
+  {% if detail.devices_error %}
+    <p class="card-body">{{ error_tag(detail.devices_error) }}</p>
+  {% elif not detail.devices %}
+    <p class="card-meta">Keine Geräte in diesem Projekt.</p>
+  {% else %}
+    <table class="table">
+      <thead><tr><th>Rolle</th><th>SN</th><th>Name</th><th>Modell</th><th>Status</th></tr></thead>
+      <tbody>
+        {% for d in detail.devices %}
+          {% for role in ["gateway", "drone"] %}
+            {% set dev = d.payload.get(role) %}
+            {% if dev %}
+            <tr>
+              <td>{{ "Dock" if role == "gateway" else "Drohne" }}</td>
+              <td class="tabular-nums">{{ dev.sn }}</td>
+              <td>{{ dev.callsign or "–" }}</td>
+              <td>{{ dev.device_model.name if dev.device_model else "–" }}</td>
+              <td>{% if dev.device_online_status %}<span class="tag tag-accent">Online</span>{% else %}<span class="tag tag-neutral">Offline</span>{% endif %}</td>
+            </tr>
+            {% endif %}
+          {% endfor %}
+        {% endfor %}
+      </tbody>
+    </table>
+
+    {% for sn, entry in detail.device_states.items() %}
     <div class="card" style="margin-top: var(--space-2);">
-      <div class="card-title" style="font-size:13px;">{{ task.payload.name }}</div>
-      <div class="card-meta">
-        Status:
-        {% if task.payload.status == "success" %}<span class="tag tag-accent">Erfolg</span>
-        {% elif task.payload.status in ["terminated", "starting_failure", "timeout"] %}<span class="tag tag-outline">{{ task.payload.status }}</span>
-        {% else %}<span class="tag tag-neutral">{{ task.payload.status }}</span>{% endif %}
-        · Wegpunkte: {{ task.payload.current_waypoint_index }}/{{ task.payload.total_waypoints }}
-      </div>
-      {% if task.media_error %}
-        <p class="card-meta">Medien: {{ error_tag(task.media_error) }}</p>
-      {% elif task.media %}
-        <p class="card-meta">Medien ({{ task.media | length }}): {% for m in task.media %}{{ m.payload.name }}{% if not loop.last %}, {% endif %}{% endfor %}</p>
-      {% endif %}
-      {% if task.track_error %}
-        <p class="card-meta">Track: {{ error_tag(task.track_error) }}</p>
-      {% elif task.track and task.track.track %}
-        <p class="card-meta">Track: {{ task.track.track.flight_distance }}m, {{ task.track.track.flight_duration }}s, {{ task.track.track.points | length }} Punkte</p>
+      <div class="card-title" style="font-size:13px;">Telemetrie {{ sn }}</div>
+      {% if entry.error %}
+        <p class="card-body">{{ error_tag(entry.error) }}</p>
+      {% elif entry.state %}
+        <pre class="card-body" style="white-space:pre-wrap; font-size:12px;">{{ entry.state.device_state | tojson(indent=2) }}</pre>
+      {% else %}
+        <p class="card-meta">Keine Telemetrie verfügbar (Gerät offline oder Modell ohne State-Unterstützung).</p>
       {% endif %}
     </div>
     {% endfor %}
+    <p class="card-meta">Feldumfang der Telemetrie ist modellabhängig — Dock 1/2, Matrice-Serie und Fernsteuerungen liefern unterschiedliche Felder.</p>
+  {% endif %}
+
+  <h4 style="margin-top: var(--space-4);">Health-Management (HMS)</h4>
+  {% if detail.hms_error %}
+    <p class="card-body">{{ error_tag(detail.hms_error) }}</p>
+  {% elif not detail.hms or detail.hms | selectattr("payload.list") | list | length == 0 %}
+    <p class="card-meta">Keine aktiven Meldungen.</p>
+  {% else %}
+    <table class="table">
+      <thead><tr><th>Gerät</th><th>Level</th><th>Modul</th><th>Ort</th><th>Meldung</th></tr></thead>
+      <tbody>
+        {% for h in detail.hms %}
+          {% for alert in (h.payload.list or []) %}
+          <tr>
+            <td class="tabular-nums">{{ h.external_id }}</td>
+            <td>
+              {% if alert.level == "warning" %}<span class="tag tag-outline">Warnung</span>
+              {% elif alert.level == "reminder" %}<span class="tag tag-neutral">Hinweis</span>
+              {% else %}<span class="tag tag-neutral">Info</span>{% endif %}
+            </td>
+            <td>{{ alert.module }}</td>
+            <td>{{ "Boden" if alert.in_the_key == "on_the_ground" else "Luft" if alert.in_the_key == "in_the_sky" else "–" }}</td>
+            <td>{{ alert.message }}</td>
+          </tr>
+          {% endfor %}
+        {% endfor %}
+      </tbody>
+    </table>
+  {% endif %}
+
+  <h4 style="margin-top: var(--space-4);">Flugrouten (Waylines)</h4>
+  {% if detail.waylines_error %}
+    <p class="card-body">{{ error_tag(detail.waylines_error) }}</p>
+  {% elif not detail.waylines %}
+    <p class="card-meta">Keine Flugrouten in diesem Projekt.</p>
+  {% else %}
+    <table class="table">
+      <thead><tr><th>Name</th><th>Gerätemodell</th><th>Typ</th><th>Aktualisiert</th></tr></thead>
+      <tbody>
+        {% for w in detail.waylines %}
+        <tr>
+          <td>{{ w.payload.name }}</td>
+          <td>{{ w.payload.device_model_key }}</td>
+          <td>{{ w.payload.template_types | join(", ") if w.payload.template_types else "–" }}</td>
+          <td>{{ w.payload.update_time }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% endif %}
+
+  <h4 style="margin-top: var(--space-4);">Flugaufgaben je Dock ({{ overview.task_lookback_days }} Tage zurück)</h4>
+  <p class="card-meta">Aus Rücksicht auf die DJI-API werden je Dock max. {{ overview.max_tasks_with_detail_per_device }} Aufgaben mit Medien/Track im Detail geladen.</p>
+  {% if not detail.flight_tasks_by_device %}
+    <p class="card-meta">Keine Docks mit Flugaufgaben-Unterstützung in diesem Projekt (reine Handheld-Drohnen ohne Dock haben keine FlightHub-Flugaufgaben).</p>
+  {% endif %}
+  {% for sn, entry in detail.flight_tasks_by_device.items() %}
+  <div class="card" style="margin-top: var(--space-2);">
+    <div class="card-title" style="font-size:13px;">Dock {{ sn }}</div>
+    {% if entry.error %}
+      <p class="card-body">{{ error_tag(entry.error) }}</p>
+    {% elif not entry.tasks %}
+      <p class="card-meta">Keine Flugaufgaben im Zeitraum.</p>
+    {% else %}
+      {% for task in entry.tasks %}
+      <div class="card" style="margin-top: var(--space-2);">
+        <div class="card-title" style="font-size:13px;">{{ task.payload.name }}</div>
+        <div class="card-meta">
+          Status:
+          {% if task.payload.status == "success" %}<span class="tag tag-accent">Erfolg</span>
+          {% elif task.payload.status in ["terminated", "starting_failure", "timeout"] %}<span class="tag tag-outline">{{ task.payload.status }}</span>
+          {% else %}<span class="tag tag-neutral">{{ task.payload.status }}</span>{% endif %}
+          · Wegpunkte: {{ task.payload.current_waypoint_index }}/{{ task.payload.total_waypoints }}
+        </div>
+        {% if task.media_error %}
+          <p class="card-meta">Medien: {{ error_tag(task.media_error) }}</p>
+        {% elif task.media %}
+          <p class="card-meta">Medien ({{ task.media | length }}): {% for m in task.media %}{{ m.payload.name }}{% if not loop.last %}, {% endif %}{% endfor %}</p>
+        {% endif %}
+        {% if task.track_error %}
+          <p class="card-meta">Track: {{ error_tag(task.track_error) }}</p>
+        {% elif task.track and task.track.track %}
+          <p class="card-meta">Track: {{ task.track.track.flight_distance }}m, {{ task.track.track.flight_duration }}s, {{ task.track.track.points | length }} Punkte</p>
+        {% endif %}
+      </div>
+      {% endfor %}
+    {% endif %}
+  </div>
+  {% endfor %}
+
   {% endif %}
 </div>
 {% endfor %}
+{% endif %}
 
 <div class="card elev-sm" style="margin-bottom: var(--space-6); background: var(--color-accent-100);">
   <div class="card-title">Hinweis: nicht jede Funktion geht mit jeder Drohne</div>

@@ -36,7 +36,11 @@ echte DJI-Produktivintegration, Mandantenfähigkeit, Microservices — siehe `CL
 - **Echte DJI-FlightHub-2-Anbindung**: `LiveDJIFlightHubClient` implementiert (2026-07-22, nur lesende
   Endpunkte: Systemstatus, Projekte, Geräte, Telemetrie, HMS, Flugaufgaben inkl. Medien/Track, Waylines
   — s. `docs/dji-flighthub2-api.md`), Zugangsdaten über Admin-Formular auf
-  `/administration/integrations/dji-flighthub/` pflegbar, DSGVO-Gate wie in v1. **Noch offen:** mit
+  `/administration/integrations/dji-flighthub/` pflegbar, DSGVO-Gate wie in v1. **Projektübergreifend**:
+  ein Organization Key deckt die ganze Organisation ab, alle DJI-Projekte werden automatisch über
+  `list_projects()` entdeckt (kein manuelles Eintragen einer Projekt-UUID mehr nötig), Übersichtsseite
+  zeigt jedes Projekt mit eigenem Geräte/HMS/Waylines/Flugaufgaben-Abschnitt (Cap `MAX_PROJECTS=5`).
+  **Noch offen:** mit
   echten Zugangsdaten gegen die echte Organisation verifizieren — ein Testlauf mit einem ungültigen
   Test-Key ergab, dass `https://fh.dji.com/openapi/v0.1/system_status` eine HTML-Seite statt JSON
   liefert (Fehlerbehandlung dafür ist vorhanden, aber die Ursache noch nicht geklärt: ungültiger Key
