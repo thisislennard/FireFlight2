@@ -38,8 +38,8 @@
     <input class="input" type="password" name="org_key" autocomplete="off" placeholder="{{ '••••••••' if org_key_set else '' }}">
   </div>
   <div class="field">
-    <label>Base-URL</label>
-    <input class="input" type="text" name="base_url" value="{{ base_url }}" placeholder="https://fh.dji.com">
+    <label>Base-URL <span class="card-meta">(NICHT https://fh.dji.com — das ist nur die Web-Oberfläche, keine API. Die echte URL ist account-/regionsspezifisch: in FlightHub 2 einloggen → Browser-DevTools (F12) → Netzwerk-Tab → Host eines echten API-Requests ablesen)</span></label>
+    <input class="input" type="text" name="base_url" value="{{ base_url }}" placeholder="z. B. https://xx-flight-api-xx.djigate.com">
   </div>
   <div style="background:var(--color-accent-100); padding: var(--space-3); border-radius: var(--radius-md);">
     <strong>DSGVO-Hinweis (Art. 28/44 ff.):</strong> DJI FlightHub überträgt Flug- und Gerätedaten an DJI-Server außerhalb der EU. Ein Auftragsverarbeitungsvertrag mit DJI und ein geeigneter Transfermechanismus sind Voraussetzung für den echten Betrieb.

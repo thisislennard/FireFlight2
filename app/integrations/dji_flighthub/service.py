@@ -49,21 +49,24 @@ def get_credentials(config: IntegrationConfig) -> dict:
     cfg = current_app.config
     return {
         "org_key": settings.get("org_key") or cfg.get("DJI_FLIGHTHUB_ORG_KEY", ""),
-        "base_url": settings.get("base_url") or cfg.get("DJI_FLIGHTHUB_BASE_URL") or "https://fh.dji.com",
+        "base_url": settings.get("base_url") or cfg.get("DJI_FLIGHTHUB_BASE_URL") or "",
     }
 
 
 def credentials_present(config: IntegrationConfig) -> bool:
-    return bool(get_credentials(config)["org_key"])
+    creds = get_credentials(config)
+    return bool(creds["org_key"] and creds["base_url"])
 
 
 def save_config(config: IntegrationConfig, *, org_key: str | None, base_url: str, dsgvo_ack: bool) -> IntegrationConfig:
     """Speichert Zugangsdaten + DSGVO-Bestätigung. `org_key` wird im Formular nie vorausgefüllt
-    (Passwortfeld) — leer gelassen heißt „unverändert lassen", nicht „löschen"."""
+    (Passwortfeld) — leer gelassen heißt „unverändert lassen", nicht „löschen". Kein Default für
+    `base_url` — `https://fh.dji.com` ist nachweislich nicht die API (s. docs/dji-flighthub2-api.md),
+    ein falscher Default wäre irreführender als ein leeres Pflichtfeld."""
     settings = dict(config.settings or {})
     if org_key:
         settings["org_key"] = org_key
-    settings["base_url"] = base_url.strip() or "https://fh.dji.com"
+    settings["base_url"] = base_url.strip()
     settings["dsgvo_ack"] = dsgvo_ack
     config.settings = settings
     config.is_enabled = bool(settings.get("org_key"))

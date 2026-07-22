@@ -123,3 +123,25 @@ laut dieser Recherche heißt der Flug-Endpunkt aktuell `/flight-task/list`, nich
 Übernahme in FireFlight2 gegenprüfen, ob sich die API seit v1s Implementierung geändert hat oder v1
 einen älteren/anderen Endpunkt-Namen verwendet). v1 setzt bisher **keinen** `X-Request-Id`-Header, der
 laut aktueller Doku aber Pflicht ist — bei Portierung von v1-Code beachten.
+
+## `https://fh.dji.com` ist NICHT die API-Basis-URL (2026-07-22 definitiv bestätigt)
+
+Ein echter Verbindungstest gegen `https://fh.dji.com/openapi/v0.1/system_status` lieferte HTML statt
+JSON — auch **ohne** jeden Auth-Header, unabhängig vom User-Agent. Response-Header zeigen `Server:
+AmazonS3` + `Via: ... CloudFront` — `fh.dji.com` ist ein rein statisches S3/CloudFront-Hosting für die
+Vue-Web-Oberfläche, kann also grundsätzlich keine Server-Logik/API ausliefern. Jeder unbekannte Pfad
+liefert vermutlich den SPA-Shell-Fallback (`index.html`), daher der HTML-statt-JSON-Fehler.
+
+Im JS-Bundle der Web-Oberfläche (`lib-axios.*.js`) ist die echte API-Basis-URL als Laufzeit-Config
+sichtbar: `baseURL = e.baseURL || window.CURRENT_BE_ENV_CONFIG?.server_url`. `CURRENT_BE_ENV_CONFIG`
+startet leer (`{zone_id:"", server_url:"", ...}`) und wird erst nach Login durch einen internen
+Zonen-/Konfigurationsabruf befüllt (`initConfig(e)` setzt `server_url` aus einem Objekt `e`, dessen
+Quelle sich im minifizierten Bundle nicht ohne Weiteres zurückverfolgen ließ) — die echte API-Host ist
+also **account-/regionsspezifisch und erst nach Login ermittelbar**, nicht von außen erratbar. Damit
+ist die alte, ursprünglich unbestätigte Notiz zu einem regionsspezifischen DJI-Gateway (z. B. etwas wie
+`*.djigate.com`) im Kern bestätigt, auch wenn der exakte Hostname nicht öffentlich auffindbar war.
+
+**So findet man die echte Basis-URL:** in FlightHub 2 einloggen (`fh.dji.com`) → Browser-DevTools (F12)
+→ Netzwerk-Tab → Filter auf „Fetch/XHR" → eine beliebige Aktion ausführen (z. B. Projekt öffnen oder
+Geräteliste ansehen) → bei einem der API-Requests den **Host** aus der Request-URL ablesen (nicht
+`fh.dji.com`) → diesen Host als Base-URL im FireFlight2-Formular eintragen.
