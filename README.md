@@ -139,7 +139,8 @@ DJI-Synchronisierung, Audit-Log-Einträge.
 | `TIMEZONE` | Anzeige-Zeitzone, Standard `Europe/Berlin` |
 | `SESSION_COOKIE_SECURE` | `true` für HTTPS-Betrieb (Standard), `false` nur für lokales HTTP |
 | `FIREFLIGHT_ADMIN_USERNAME` / `_EMAIL` / `_PASSWORD` | Für `flask init-fireflight`: erster Administrator |
-| `DJI_FLIGHTHUB_ENABLED` / `_BASE_URL` / `_CLIENT_ID` / `_CLIENT_SECRET` | DJI-FlightHub-2-Zugangsdaten (aktuell ungenutzt, s. u.) |
+| `DJI_FLIGHTHUB_ENABLED` | Globaler Not-Aus-Schalter (Default `true`) — auf `false` setzen, um die echte API org-übergreifend zu sperren, unabhängig vom DB-Zustand |
+| `DJI_FLIGHTHUB_BASE_URL` / `_ORG_KEY` / `_PROJECT_UUID` | Optionaler Deployment-Default für DJI-Zugangsdaten. Normalerweise werden Organization Key + Projekt-UUID direkt über die Administrationsoberfläche (`/administration/integrations/dji-flighthub/`) gepflegt und in `integration_configs.settings` gespeichert — dort eingetragene Werte haben Vorrang vor diesen Env-Variablen. Ohne gesetzte Zugangsdaten **und** DSGVO-Bestätigung in der Oberfläche wird immer der Demo-Connector verwendet, nie echte Daten abgerufen |
 
 ## Standardrollen
 

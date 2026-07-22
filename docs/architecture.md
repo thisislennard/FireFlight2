@@ -64,12 +64,27 @@ tatsächliches SVG-Icon gerendert. Eine vollständige Lucide-Einbindung (Sprite 
 gegenüber Kern-Funktionalität (Auth, Rollen, Dashboards, DJI-Grundstruktur) nachrangig — siehe
 `docs/roadmap.md`.
 
-## DJI-Integration: Secrets nur aus Env, `IntegrationConfig` ohne Zugangsdaten
-`IntegrationConfig.settings` (JSONB) ist für nicht-geheime Einstellungen gedacht. Zugangsdaten kommen
-ausschließlich aus `DJI_FLIGHTHUB_*`-Umgebungsvariablen (spec-struktur.md Abschnitt 4: "Zugangsdaten
-dürfen niemals fest im Quellcode gespeichert werden"). `get_client()` liefert aktuell immer den
-Mock-Client zurück; die Umschaltung auf einen echten Client anhand von `DJI_FLIGHTHUB_ENABLED` ist
-vorbereitet, aber noch nicht verdrahtet, da es noch keine echte Implementierung gibt.
+## DJI-Integration: echte Anbindung, Zugangsdaten über die Administrationsoberfläche
+`IntegrationConfig.settings` (JSONB) speichert pro Organisation Organization Key (X-User-Token),
+Projekt-UUID (X-Project-Uuid), Base-URL und die DSGVO-Bestätigung — gepflegt über ein Formular auf
+`/administration/integrations/dji-flighthub/` (Berechtigung `integrations.configure`), analog zu v1s
+Einstellungsseite. Das Org-Key-Feld wird im Formular nie mit dem echten Wert vorausgefüllt (Passwort-
+Input, leer lassen = unverändert lassen) — Zugangsdaten landen dadurch zwar in der DB, aber nie
+hartkodiert im Quellcode (spec-struktur.md Abschnitt 4). `DJI_FLIGHTHUB_ORG_KEY`/`_PROJECT_UUID`/
+`_BASE_URL`-Umgebungsvariablen sind nur ein optionaler Deployment-Default, falls die DB-Werte leer sind;
+`DJI_FLIGHTHUB_ENABLED` (Default `true`) ist ein globaler Not-Aus-Schalter unabhängig vom DB-Zustand.
+
+`get_client()` (`app/integrations/dji_flighthub/service.py`) liefert `LiveDJIFlightHubClient` nur, wenn
+**alle drei** Bedingungen erfüllt sind: Not-Aus nicht aktiv, Org Key + Projekt-UUID vorhanden (DB oder
+Env), **und** `settings.dsgvo_ack=true` — sonst immer `MockDJIFlightHubClient`. So kann eine echte
+Anbindung nie versehentlich ohne bewusste DSGVO-Bestätigung aktiv werden. Beide Client-Implementierungen
+erfüllen dieselbe erweiterte `DJIFlightHubClient`-Schnittstelle (`base.py`) — die Übersichtsseite sieht
+in Mock- wie Live-Betrieb identisch aus, nur mit Demo- statt Echtdaten. Nur lesende Endpunkte angebunden
+(Systemstatus, Projekte, Geräte, Telemetrie, HMS, Flugaufgaben inkl. Medien/Track, Waylines) — Steuer-
+endpunkte (Task anlegen, Gerätebefehle, Kamera/RTK/Livestream) bewusst nicht, s. `docs/dji-flighthub2-api.md`.
+`gather_flighthub_overview()` deckelt die Anzahl paralleler Detail-Abfragen (Geräte/Tasks), um bei
+großen Organisationen nicht unkontrolliert viele API-Calls auf einmal auszulösen — reine
+Administrations-/Explorationsseite, kein Vollsynchronisierungsmechanismus.
 
 ## Migrationen: Ein Pfad statt zwei
 Anders als FireFlight v1 (nummerierte Migrationsskripte **plus** separate `_org_alter_statements()`

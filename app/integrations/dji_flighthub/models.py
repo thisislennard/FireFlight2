@@ -10,8 +10,10 @@ from app.extensions import db
 
 
 class IntegrationConfig(UUIDPrimaryKeyMixin, TimestampMixin, db.Model):
-    """Nicht-geheime Einstellungen einer Integration. Zugangsdaten kommen ausschließlich aus
-    Umgebungsvariablen (spec-struktur.md Abschnitt 4) — diese Tabelle speichert keine Secrets."""
+    """Einstellungen einer Integration, organisationsweit. `settings` (JSONB) enthält bei DJI FlightHub
+    auch den Organization Key (Bearer-Token) — über die Administrationsoberfläche gepflegt, nie im
+    Quellcode hartkodiert (spec-struktur.md Abschnitt 4). `DJI_FLIGHTHUB_*`-Umgebungsvariablen dienen nur
+    als optionaler Deployment-Default; DB-Werte haben Vorrang (s. `dji_flighthub/service.py: get_credentials`)."""
 
     __tablename__ = "integration_configs"
     __table_args__ = (

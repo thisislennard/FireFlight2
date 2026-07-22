@@ -17,10 +17,12 @@ class BaseConfig:
 
     MAX_CONTENT_LENGTH = 16 * 1024 * 1024
 
-    DJI_FLIGHTHUB_ENABLED = os.environ.get("DJI_FLIGHTHUB_ENABLED", "false").lower() == "true"
-    DJI_FLIGHTHUB_BASE_URL = os.environ.get("DJI_FLIGHTHUB_BASE_URL", "")
-    DJI_FLIGHTHUB_CLIENT_ID = os.environ.get("DJI_FLIGHTHUB_CLIENT_ID", "")
-    DJI_FLIGHTHUB_CLIENT_SECRET = os.environ.get("DJI_FLIGHTHUB_CLIENT_SECRET", "")
+    # Globaler Not-Aus-Schalter (Default an) — Zugangsdaten/DSGVO-Bestätigung pro Organisation kommen
+    # aus der Administrationsoberfläche (IntegrationConfig), s. app/integrations/dji_flighthub/service.py.
+    DJI_FLIGHTHUB_ENABLED = os.environ.get("DJI_FLIGHTHUB_ENABLED", "true").lower() == "true"
+    DJI_FLIGHTHUB_BASE_URL = os.environ.get("DJI_FLIGHTHUB_BASE_URL", "https://fh.dji.com")
+    DJI_FLIGHTHUB_ORG_KEY = os.environ.get("DJI_FLIGHTHUB_ORG_KEY", "")
+    DJI_FLIGHTHUB_PROJECT_UUID = os.environ.get("DJI_FLIGHTHUB_PROJECT_UUID", "")
 
     LOGIN_MAX_FAILED_ATTEMPTS = 5
     LOGIN_LOCKOUT_MINUTES = 15

@@ -33,9 +33,17 @@ Einsatzverwaltung, vollständiges Flugbuch, Geräteverwaltung, Karten/GIS, Medie
 echte DJI-Produktivintegration, Mandantenfähigkeit, Microservices — siehe `CLAUDE.md` „Kernkonzepte".
 
 ## Bekannte Lücken / nächste Schritte nach Ausbaustufe 1
-- **Echte DJI-FlightHub-2-Anbindung**: `MockDJIFlightHubClient` ersetzen, sobald Zugangsdaten/Endpunkte
-  bestätigt sind. Referenz: `FireFlight/docs/FLIGHTHUB2_API.md` (v1-Recherche, u. a. Server-URL-Fallstricke,
-  `X-Request-Id`-Pflicht-Header, `"list": null`-Sonderfall)
+- **Echte DJI-FlightHub-2-Anbindung**: `LiveDJIFlightHubClient` implementiert (2026-07-22, nur lesende
+  Endpunkte: Systemstatus, Projekte, Geräte, Telemetrie, HMS, Flugaufgaben inkl. Medien/Track, Waylines
+  — s. `docs/dji-flighthub2-api.md`), Zugangsdaten über Admin-Formular auf
+  `/administration/integrations/dji-flighthub/` pflegbar, DSGVO-Gate wie in v1. **Noch offen:** mit
+  echten Zugangsdaten gegen die echte Organisation verifizieren — ein Testlauf mit einem ungültigen
+  Test-Key ergab, dass `https://fh.dji.com/openapi/v0.1/system_status` eine HTML-Seite statt JSON
+  liefert (Fehlerbehandlung dafür ist vorhanden, aber die Ursache noch nicht geklärt: ungültiger Key
+  oder falsche Basis-URL/regionsspezifisches Gateway, wie v1 das teils vermutet hatte) — sobald echte
+  Zugangsdaten vorliegen, Base-URL im Formular ggf. auf die per Browser-DevTools ermittelte echte
+  API-Basis-URL umstellen. Steuerendpunkte (Task anlegen, Gerätebefehle, Kamera/RTK/Livestream) bewusst
+  nicht angebunden.
 - **2FA/TOTP**: in spec-struktur.md nicht erwähnt, in v1 vorhanden — Entscheidung mit Nutzer offen
 - **Dark-Mode-Farbwerte**: aktuell pragmatisch aus den Neutral-/Accent-Ramps abgeleitet (`app/static/css/app.css`,
   `:root[data-theme="dark"]`), keine vom Nutzer gelieferten exakten Werte — bei Bedarf nachschärfen

@@ -2,32 +2,264 @@
 {% block title %}DJI FlightHub 2 – Integrationen{% endblock %}
 {% block page_title %}DJI FlightHub 2{% endblock %}
 {% block content %}
-<div class="card elev-sm" style="max-width:560px; margin-bottom: var(--space-6);">
-  <div class="card-title">Status</div>
+
+{% macro error_tag(message) %}
+  <span class="tag tag-outline" title="{{ message }}">Fehler</span> <span class="card-meta">{{ message }}</span>
+{% endmacro %}
+
+<div class="card elev-sm" style="margin-bottom: var(--space-6);">
+  <div class="card-title">Verbindungsstatus</div>
   <p class="card-body">
-    {% if config.is_enabled %}
-      <span class="tag tag-accent">Konfiguriert</span>
+    {% if overview.client_type == "live" %}
+      <span class="tag tag-accent">Echte DJI-API</span>
     {% else %}
-      <span class="tag tag-outline">Nicht konfiguriert</span>
+      <span class="tag tag-neutral">Demo-Daten (Mock)</span>
     {% endif %}
-    — aktuell wird ausschließlich der Demo-Connector mit Testdaten verwendet
-    (echte Anbindung folgt, sobald DJI-Zugangsdaten/Endpunkte bestätigt sind).
+    — aktiver Connector für diese Seite.
   </p>
+  <div class="card-meta">Zugangsdaten hinterlegt: {% if credentials_present %}<span class="tag tag-accent">Ja</span>{% else %}<span class="tag tag-neutral">Nein</span>{% endif %}</div>
+  <div class="card-meta">DSGVO-Drittlandtransfer bestätigt: {% if dsgvo_acknowledged %}<span class="tag tag-accent">Ja</span>{% else %}<span class="tag tag-neutral">Nein</span>{% endif %}</div>
+  {% if not kill_switch_enabled %}
+  <div class="card-meta">Globaler Not-Aus (<code>DJI_FLIGHTHUB_ENABLED=false</code>) ist aktiv: <span class="tag tag-outline">Deaktiviert</span></div>
+  {% endif %}
+  <p class="card-body">
+    Solange Zugangsdaten fehlen, die DSGVO-Bestätigung nicht gesetzt ist, <strong>oder</strong> der globale Not-Aus aktiv ist, liefert diese Seite ausschließlich Demo-Daten — es werden dann keine echten Anfragen an DJI gestellt.
+  </p>
+</div>
+
+{% if has_permission('integrations.configure') %}
+<form method="post" action="{{ url_for('dji_flighthub.save_config_route') }}" class="card elev-sm" style="max-width:560px; margin-bottom: var(--space-6);">
+  <div class="card-title">Zugangsdaten</div>
+  <div class="field">
+    <label>Organization Key <span class="card-meta">(X-User-Token{% if org_key_set %}, aktuell gesetzt – leer lassen, um ihn zu behalten{% endif %})</span></label>
+    <input class="input" type="password" name="org_key" autocomplete="off" placeholder="{{ '••••••••' if org_key_set else '' }}">
+  </div>
+  <div class="field">
+    <label>Projekt-UUID</label>
+    <input class="input" type="text" name="project_uuid" value="{{ project_uuid }}" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx">
+  </div>
+  <div class="field">
+    <label>Base-URL</label>
+    <input class="input" type="text" name="base_url" value="{{ base_url }}" placeholder="https://fh.dji.com">
+  </div>
+  <div style="background:var(--color-accent-100); padding: var(--space-3); border-radius: var(--radius-md);">
+    <strong>DSGVO-Hinweis (Art. 28/44 ff.):</strong> DJI FlightHub überträgt Flug- und Gerätedaten an DJI-Server außerhalb der EU. Ein Auftragsverarbeitungsvertrag mit DJI und ein geeigneter Transfermechanismus sind Voraussetzung für den echten Betrieb.
+    <label class="checkbox-row" style="margin-top: var(--space-2);">
+      <input type="checkbox" name="dsgvo_ack" {% if dsgvo_acknowledged %}checked{% endif %}>
+      Ich bestätige, dass ein AV-Vertrag nach Art. 28 DSGVO mit DJI besteht und der Drittlandtransfer auf einer geeigneten Rechtsgrundlage erfolgt.
+    </label>
+  </div>
+  <div class="form-actions">
+    <button type="submit" class="btn btn-primary">Speichern</button>
+  </div>
+  <p class="card-meta">
+    Organization Key: FlightHub 2 → Meine Organisation → Einstellungen → FlightHub Sync. Projekt-UUID: aus der Projektliste (<code>data.list.uuid</code>) bzw. aus der Projekt-Editor-URL.
+  </p>
+</form>
+{% endif %}
+
+<div class="card elev-sm" style="margin-bottom: var(--space-6);">
+  <div class="card-title">System-Status</div>
+  {% if overview.system_status_error %}
+    <p class="card-body">{{ error_tag(overview.system_status_error) }}</p>
+  {% else %}
+    <p class="card-body">
+      {% if overview.system_status.code == 0 %}<span class="tag tag-accent">Normal</span>{% else %}<span class="tag tag-outline">Code {{ overview.system_status.code }}</span>{% endif %}
+      {{ overview.system_status.message }}
+    </p>
+  {% endif %}
+</div>
+
+<h3>Projekte</h3>
+{% if overview.projects_error %}
+  <p>{{ error_tag(overview.projects_error) }}</p>
+{% elif not overview.projects %}
+  <p class="card-meta">Keine Projekte gefunden.</p>
+{% else %}
+<table class="table" style="margin-bottom: var(--space-6);">
+  <thead><tr><th>Name</th><th>UUID</th><th>Standort</th></tr></thead>
+  <tbody>
+    {% for p in overview.projects %}
+    <tr>
+      <td>{{ p.payload.name }}<br><span class="card-meta">{{ p.payload.introduction }}</span></td>
+      <td class="tabular-nums">{{ p.external_id }}</td>
+      <td>{% set c = p.payload.project_work_center_point %}{% if c %}{{ "%.4f"|format(c.latitude) }}, {{ "%.4f"|format(c.longitude) }}{% endif %}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+
+<h3>Geräte</h3>
+{% if overview.devices_error %}
+  <p>{{ error_tag(overview.devices_error) }}</p>
+{% elif not overview.devices %}
+  <p class="card-meta">Keine Geräte gefunden.</p>
+{% else %}
+<div class="table-wrap" style="margin-bottom: var(--space-2);">
+<table class="table">
+  <thead><tr><th>Rolle</th><th>SN</th><th>Name</th><th>Modell</th><th>Status</th><th>Modus</th><th>Kameras</th></tr></thead>
+  <tbody>
+    {% for d in overview.devices %}
+      {% for role in ["gateway", "drone"] %}
+        {% set dev = d.payload.get(role) %}
+        {% if dev %}
+        <tr>
+          <td>{{ "Dock" if role == "gateway" else "Drohne" }}</td>
+          <td class="tabular-nums">{{ dev.sn }}</td>
+          <td>{{ dev.callsign or "–" }}</td>
+          <td>{{ dev.device_model.name if dev.device_model else "–" }}</td>
+          <td>{% if dev.device_online_status %}<span class="tag tag-accent">Online</span>{% else %}<span class="tag tag-neutral">Offline</span>{% endif %}</td>
+          <td>
+            {% if role == "gateway" %}
+              {% set gateway_modes = {0: "Idle", 1: "Vor-Ort-Debug", 2: "Remote-Debug", 3: "Firmware-Update", 4: "Im Einsatz"} %}
+              {{ gateway_modes.get(dev.mode_code, dev.mode_code) }}
+            {% else %}
+              Code {{ dev.mode_code }} <span class="card-meta">(Rohwert, Bedeutung modellabhängig)</span>
+            {% endif %}
+          </td>
+          <td>
+            {% for cam in dev.camera_list or [] %}
+              {{ cam.camera_index }}{% if cam.lens_list %} ({{ cam.lens_list[0].available_lens_types | join(", ") }}){% endif %}{% if not loop.last %}, {% endif %}
+            {% endfor %}
+          </td>
+        </tr>
+        {% endif %}
+      {% endfor %}
+    {% endfor %}
+  </tbody>
+</table>
+</div>
+
+{% for sn, entry in overview.device_states.items() %}
+<div class="card" style="margin-bottom: var(--space-2);">
+  <div class="card-title" style="font-size:14px;">Telemetrie {{ sn }}</div>
+  {% if entry.error %}
+    <p class="card-body">{{ error_tag(entry.error) }}</p>
+  {% elif entry.state %}
+    <pre class="card-body" style="white-space:pre-wrap; font-size:12px;">{{ entry.state.device_state | tojson(indent=2) }}</pre>
+  {% else %}
+    <p class="card-meta">Keine Telemetrie verfügbar (Gerät offline oder Modell ohne State-Unterstützung).</p>
+  {% endif %}
+</div>
+{% endfor %}
+<p class="card-meta" style="margin-bottom: var(--space-6);">Feldumfang der Telemetrie ist modellabhängig — Dock 1/2, Matrice-Serie und Fernsteuerungen liefern unterschiedliche Felder.</p>
+{% endif %}
+
+<h3>Health-Management (HMS)</h3>
+{% if overview.hms_error %}
+  <p>{{ error_tag(overview.hms_error) }}</p>
+{% elif not overview.hms or overview.hms | selectattr("payload.list") | list | length == 0 %}
+  <p class="card-meta" style="margin-bottom: var(--space-6);">Keine aktiven Meldungen.</p>
+{% else %}
+<table class="table" style="margin-bottom: var(--space-6);">
+  <thead><tr><th>Gerät</th><th>Level</th><th>Modul</th><th>Ort</th><th>Meldung</th></tr></thead>
+  <tbody>
+    {% for h in overview.hms %}
+      {% for alert in (h.payload.list or []) %}
+      <tr>
+        <td class="tabular-nums">{{ h.external_id }}</td>
+        <td>
+          {% if alert.level == "warning" %}<span class="tag tag-outline">Warnung</span>
+          {% elif alert.level == "reminder" %}<span class="tag tag-neutral">Hinweis</span>
+          {% else %}<span class="tag tag-neutral">Info</span>{% endif %}
+        </td>
+        <td>{{ alert.module }}</td>
+        <td>{{ "Boden" if alert.in_the_key == "on_the_ground" else "Luft" if alert.in_the_key == "in_the_sky" else "–" }}</td>
+        <td>{{ alert.message }}</td>
+      </tr>
+      {% endfor %}
+    {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+
+<h3>Flugrouten (Waylines)</h3>
+{% if overview.waylines_error %}
+  <p>{{ error_tag(overview.waylines_error) }}</p>
+{% elif not overview.waylines %}
+  <p class="card-meta" style="margin-bottom: var(--space-6);">Keine Flugrouten gefunden.</p>
+{% else %}
+<table class="table" style="margin-bottom: var(--space-6);">
+  <thead><tr><th>Name</th><th>Gerätemodell</th><th>Typ</th><th>Aktualisiert</th></tr></thead>
+  <tbody>
+    {% for w in overview.waylines %}
+    <tr>
+      <td>{{ w.payload.name }}</td>
+      <td>{{ w.payload.device_model_key }}</td>
+      <td>{{ w.payload.template_types | join(", ") if w.payload.template_types else "–" }}</td>
+      <td>{{ w.payload.update_time }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+
+<h3>Flugaufgaben je Dock ({{ overview.task_lookback_days }} Tage zurück)</h3>
+<p class="card-meta">Aus Rücksicht auf die DJI-API werden je Dock max. {{ overview.max_tasks_with_detail_per_device }} Aufgaben mit Medien/Track im Detail geladen — ältere/weitere Aufgaben erscheinen nur in der Liste.</p>
+{% if not overview.flight_tasks_by_device %}
+  <p class="card-meta" style="margin-bottom: var(--space-6);">Keine Docks mit Flugaufgaben-Unterstützung gefunden (reine Handheld-Drohnen ohne Dock haben keine FlightHub-Flugaufgaben).</p>
+{% endif %}
+{% for sn, entry in overview.flight_tasks_by_device.items() %}
+<div class="card elev-sm" style="margin-bottom: var(--space-4);">
+  <div class="card-title" style="font-size:14px;">Dock {{ sn }}</div>
+  {% if entry.error %}
+    <p class="card-body">{{ error_tag(entry.error) }}</p>
+  {% elif not entry.tasks %}
+    <p class="card-meta">Keine Flugaufgaben im Zeitraum.</p>
+  {% else %}
+    {% for task in entry.tasks %}
+    <div class="card" style="margin-top: var(--space-2);">
+      <div class="card-title" style="font-size:13px;">{{ task.payload.name }}</div>
+      <div class="card-meta">
+        Status:
+        {% if task.payload.status == "success" %}<span class="tag tag-accent">Erfolg</span>
+        {% elif task.payload.status in ["terminated", "starting_failure", "timeout"] %}<span class="tag tag-outline">{{ task.payload.status }}</span>
+        {% else %}<span class="tag tag-neutral">{{ task.payload.status }}</span>{% endif %}
+        · Wegpunkte: {{ task.payload.current_waypoint_index }}/{{ task.payload.total_waypoints }}
+      </div>
+      {% if task.media_error %}
+        <p class="card-meta">Medien: {{ error_tag(task.media_error) }}</p>
+      {% elif task.media %}
+        <p class="card-meta">Medien ({{ task.media | length }}): {% for m in task.media %}{{ m.payload.name }}{% if not loop.last %}, {% endif %}{% endfor %}</p>
+      {% endif %}
+      {% if task.track_error %}
+        <p class="card-meta">Track: {{ error_tag(task.track_error) }}</p>
+      {% elif task.track and task.track.track %}
+        <p class="card-meta">Track: {{ task.track.track.flight_distance }}m, {{ task.track.track.flight_duration }}s, {{ task.track.track.points | length }} Punkte</p>
+      {% endif %}
+    </div>
+    {% endfor %}
+  {% endif %}
+</div>
+{% endfor %}
+
+<div class="card elev-sm" style="margin-bottom: var(--space-6); background: var(--color-accent-100);">
+  <div class="card-title">Hinweis: nicht jede Funktion geht mit jeder Drohne</div>
+  <p class="card-body">
+    Diese Seite zeigt nur lesende Endpunkte — bewusst keine Steuerfunktionen (Task anlegen, RTH, Kamera/Objektiv/RTK, Livestream). Auch bei den Lesefunktionen gilt: der Funktions- und Feldumfang hängt vom jeweiligen Gerätemodell ab, u. a.:
+  </p>
+  <ul class="card-body" style="margin:0; padding-left: 20px;">
+    <li>Detaillierte Telemetrie (<code>device/state</code>) hat je nach Dock-/Drohnen-Generation unterschiedliche Felder (z. B. RTK- oder Netzwerkdaten nicht bei jedem Modell).</li>
+    <li>Objektiv-Wechsel (wide/zoom/ir) nur bei Mehrlinsen-Kameras — reine Mavic-3E-Konfigurationen haben z. B. kein IR-Objektiv.</li>
+    <li>Flugaufgaben/Waylines setzen ein Dock voraus — reine Handheld-Drohnen ohne Dock tauchen nur in der Geräteliste auf, nicht bei Flugaufgaben.</li>
+    <li>HMS-Meldungen (Health-Management) sind modellspezifisch codiert — Code-Bedeutung kann sich zwischen Gerätegenerationen unterscheiden.</li>
+  </ul>
+</div>
+
+<div class="card elev-sm" style="max-width:560px; margin-bottom: var(--space-6);">
+  <div class="card-title">Sync-Test (Legacy-Mechanismus)</div>
+  <p class="card-body">Schreibt Geräte als <code>external_references</code> in die Datenbank — unabhängig von der Übersicht oben.</p>
   <div class="card-meta">
     {% set last_run = config.sync_runs[0] if config.sync_runs else none %}
     Letzter Versuch: {{ last_run.started_at.strftime("%d.%m.%Y %H:%M") if last_run else "–" }}
   </div>
-  <div class="card-meta">
-    {% set last_success = config.sync_runs | selectattr("status", "equalto", "success") | list | first %}
-    Letzte erfolgreiche Synchronisierung: {{ last_success.started_at.strftime("%d.%m.%Y %H:%M") if last_success else "–" }}
-  </div>
   {% if last_run and last_run.status == "failed" %}
   <div class="card-meta">Letzter Fehler: {{ last_run.error_message }}</div>
   {% endif %}
-  <div class="card-meta">Zuletzt verarbeitete Datensätze: {{ last_run.records_processed if last_run else 0 }}</div>
   {% if has_permission('integrations.sync') %}
   <form method="post" action="{{ url_for('dji_flighthub.simulate_sync') }}">
-    <button type="submit" class="btn btn-primary">Simulierte Synchronisierung starten</button>
+    <button type="submit" class="btn btn-primary">Synchronisierung starten</button>
   </form>
   {% endif %}
 </div>
