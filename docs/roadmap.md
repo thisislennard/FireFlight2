@@ -50,6 +50,12 @@ echte DJI-Produktivintegration, Mandantenfähigkeit, Microservices — siehe `CL
   Ausnahme vom rein lesenden Scope ergänzt, inkl. eingebettetem WHEP/WebRTC-Player
   (`app/static/js/whep-player.js`) und gezielt gelockerter CSP (`connect-src` s. `docs/architecture.md`).
   Übrige Steuerendpunkte (Task anlegen, Gerätebefehle, Kamera/RTK) weiterhin bewusst nicht angebunden.
+  **Wichtige Erkenntnis:** Geräte-Endpunkte bleiben ohne physisches DJI Dock leer, auch wenn Geräte im
+  Projekt-Roster der Weboberfläche eingetragen sind — die OpenAPI zeigt nur Dock-Cloud-verbundene
+  Geräte, nicht das Projekt-Roster. Organisation hat aktuell kein Dock (nur manuell geflogene M30T),
+  daher bleiben Geräte-/Telemetrie-/HMS-/Flugaufgaben-Abschnitte strukturell leer. Details:
+  `docs/dji-flighthub2-api.md`. Für manuell geflogene Geräte ist das reguläre (noch zu bauende)
+  Flugbuch-Fachmodul der richtige Weg, nicht die DJI-Cloud-Sync.
 - **2FA/TOTP**: in spec-struktur.md nicht erwähnt, in v1 vorhanden — Entscheidung mit Nutzer offen
 - **Dark-Mode-Farbwerte**: aktuell pragmatisch aus den Neutral-/Accent-Ramps abgeleitet (`app/static/css/app.css`,
   `:root[data-theme="dark"]`), keine vom Nutzer gelieferten exakten Werte — bei Bedarf nachschärfen

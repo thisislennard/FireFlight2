@@ -103,6 +103,25 @@ gemeinsamen Prefix `/openapi/v0.1`.
 | `GET /open_model/models/{uuid}` | Modell-Details/Status |
 | `DELETE /open_model/models/{uuid}` | Modell löschen |
 
+## Wichtige Einschränkung: Geräte-Endpunkte zeigen nur Dock-verbundene Cloud-Geräte
+
+2026-07-22 mit echtem Account verifiziert: `GET /device` und `GET /project/device` lieferten durchgehend
+`{"code":0,"data":{"list":null}}` (technisch erfolgreich, aber leer) — für **alle** 10 Projekte der
+Organisation, obwohl im Projekt „TEST Projekt Lennard" (Weboberfläche, Projekt-ID `2K7PAQ`) eine M30T
+im Abschnitt „Geräte" korrekt hinterlegt war. Ursache: Die Organisation hat **kein physisches DJI Dock**
+— die M30T ist nur manuell im Projekt-Roster der Weboberfläche eingetragen (fliegt per Fernsteuerung,
+nicht Dock-automatisiert). Die Business-OpenAPI-Geräteendpunkte sind strukturell auf **Cloud-verbundene
+Geräte über ein DJI Dock** ausgelegt (Antwortschema nennt das Dock explizit `gateway`, die Drohne hängt
+daran) — sie spiegeln nicht das Projekt-Roster der Weboberfläche, sondern nur aktiv über ein Dock an die
+Cloud angebundene Geräte. `/device/hms` ohne Geräte im Projekt liefert dabei einen echten Fehler
+(`210060 Bad Request`) statt einer leeren Liste — vermutlich eine Folge des leeren Geräte-Sets, kein
+eigenständiger Bug.
+
+**Praktische Konsequenz:** Ohne physisches Dock bleiben Geräte-/Telemetrie-/HMS-/Flugaufgaben-Endpunkte
+für diese Organisation leer, unabhängig vom FireFlight2-Code — das ist ein strukturelles Scope-Thema der
+DJI-API, kein Integrationsfehler. Für manuell geflogene Fluggeräte ohne Dock bleibt das klassische,
+manuelle Flugbuch (späteres Fachmodul, s. `docs/roadmap.md`) der richtige Weg, nicht die DJI-Cloud-Sync.
+
 ## Einordnung für FireFlight2
 
 **Geräte** (inkl. HMS), **Flugaufgaben** (inkl. Media+Track) und **Waylines** sind der direkte Kern
