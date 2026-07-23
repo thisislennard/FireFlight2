@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}Wizard-Vorschau – {{ wizard.name }}{% endblock %}
+{% block page_title %}Vorschau: {{ wizard.name }}{% endblock %}
+{% block content %}
+{% if error %}<div class="flash flash-error">{{ error }}</div>{% endif %}
+
+{% if runner.is_finished %}
+<div class="card elev-sm" style="max-width:480px;">
+  <span class="card-kicker">Abgeschlossen</span>
+  <h2 class="card-title">Vorschau beendet</h2>
+  <p class="card-body">Alle {{ runner.progress[1] }} Schritte durchlaufen.</p>
+  <form method="post" class="form-actions">
+    <input type="hidden" name="action" value="reset">
+    <button type="submit" class="btn btn-primary">Neu starten</button>
+  </form>
+</div>
+{% elif runner.current_step %}
+{% set step = runner.current_step %}
+<div class="card elev-sm" style="max-width:480px;">
+  <span class="card-kicker">Schritt {{ runner.progress[0] + 1 }} von {{ runner.progress[1] }}</span>
+  <h2 class="card-title">{{ step.title }}</h2>
+  <form method="post">
+    {% if step.step_type == "info" %}
+    <p class="card-body">{{ step.config.get("body", "") }}</p>
+    {% elif step.step_type == "checklist" %}
+    <div class="checkbox-list">
+      {% for item in step.config.get("items", []) %}
+      <label class="checkbox-row"><input type="checkbox" name="answer_items" value="{{ loop.index0 }}"> {{ item }}</label>
+      {% endfor %}
+    </div>
+    {% elif step.step_type == "confirmation" %}
+    <label class="checkbox-row"><input type="checkbox" name="answer" value="on"> {{ step.config.get("label", "") }}</label>
+    {% elif step.step_type == "text_input" %}
+    <div class="field"><label>{{ step.config.get("label", "") }}</label><input class="input" type="text" name="answer"></div>
+    {% elif step.step_type == "choice" %}
+    <div class="checkbox-list">
+      {% for option in step.config.get("options", []) %}
+      <label class="checkbox-row"><input type="radio" name="answer" value="{{ option }}"> {{ option }}</label>
+      {% endfor %}
+    </div>
+    {% endif %}
+    <div class="form-actions" style="justify-content:space-between;">
+      <button type="submit" name="action" value="back" class="btn btn-secondary" {% if runner.progress[0] == 0 %}disabled{% endif %}>Zurück</button>
+      <button type="submit" name="action" value="next" class="btn btn-primary">Weiter</button>
+    </div>
+  </form>
+</div>
+{% else %}
+<p class="text-muted">Dieser Wizard hat noch keine aktiven Schritte.</p>
+{% endif %}
+
+<div class="form-actions" style="max-width:480px;">
+  <a class="btn btn-ghost" href="{{ url_for('administration.wizard_edit', wizard_id=wizard.id) }}">Zurück zum Editor</a>
+</div>
+{% endblock %}

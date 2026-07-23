@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block title %}Wizard – Administration{% endblock %}
+{% block page_title %}{{ "Wizard bearbeiten" if wizard else "Neuer Wizard" }}{% endblock %}
+{% block content %}
+{% if error %}<div class="flash flash-error">{{ error }}</div>{% endif %}
+<form method="post" class="card elev-sm" style="max-width:560px;">
+  {% if not wizard %}
+  <div class="field"><label>Schlüssel (technisch, z. B. "preflight_check")</label><input class="input" type="text" name="key" required></div>
+  {% else %}
+  <div class="field"><label>Schlüssel</label><input class="input" type="text" value="{{ wizard.key }}" disabled></div>
+  {% endif %}
+  <div class="field"><label>Name</label><input class="input" type="text" name="name" value="{{ wizard.name if wizard else '' }}" required></div>
+  <div class="field"><label>Beschreibung</label><input class="input" type="text" name="description" value="{{ wizard.description or '' if wizard else '' }}"></div>
+  <div class="form-actions">
+    <button type="submit" class="btn btn-primary">Speichern</button>
+    <a class="btn btn-secondary" href="{{ url_for('administration.wizards') }}">Abbrechen</a>
+  </div>
+</form>
+
+{% if wizard %}
+<div class="card elev-sm" style="max-width:640px; margin-top: var(--space-4);">
+  <span class="card-kicker">Schritte</span>
+  <h2 class="card-title">Ablauf</h2>
+  {% if wizard.steps %}
+  <table class="table">
+    <thead><tr><th>#</th><th>Titel</th><th>Typ</th><th></th></tr></thead>
+    <tbody>
+      {% for step in wizard.steps %}
+      <tr>
+        <td>{{ loop.index }}</td>
+        <td><a href="{{ url_for('administration.wizard_step_edit', wizard_id=wizard.id, step_id=step.id) }}">{{ step.title }}</a></td>
+        <td>{{ step.step_type }}</td>
+        <td style="white-space:nowrap;">
+          <form method="post" action="{{ url_for('administration.wizard_step_move', wizard_id=wizard.id, step_id=step.id) }}" style="display:inline;">
+            <input type="hidden" name="direction" value="up">
+            <button type="submit" class="btn btn-ghost" {% if loop.first %}disabled{% endif %}>↑</button>
+          </form>
+          <form method="post" action="{{ url_for('administration.wizard_step_move', wizard_id=wizard.id, step_id=step.id) }}" style="display:inline;">
+            <input type="hidden" name="direction" value="down">
+            <button type="submit" class="btn btn-ghost" {% if loop.last %}disabled{% endif %}>↓</button>
+          </form>
+          <form method="post" action="{{ url_for('administration.wizard_step_delete', wizard_id=wizard.id, step_id=step.id) }}" style="display:inline;">
+            <button type="submit" class="btn btn-ghost">Entfernen</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="text-muted">Noch keine Schritte.</p>
+  {% endif %}
+
+  <form method="post" action="{{ url_for('administration.wizard_add_step', wizard_id=wizard.id) }}" style="margin-top: var(--space-3);">
+    <div class="field"><label>Titel des neuen Schritts</label><input class="input" type="text" name="title" placeholder="z. B. Preflight-Checkliste"></div>
+    <div class="field">
+      <label>Step-Typ</label>
+      <select class="input" name="step_type">
+        {% for definition in step_types %}
+        <option value="{{ definition.key }}">{{ definition.label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <button type="submit" class="btn btn-secondary">Schritt hinzufügen</button>
+  </form>
+</div>
+
+<div class="form-actions" style="max-width:640px;">
+  <a class="btn btn-primary" href="{{ url_for('administration.wizard_preview', wizard_id=wizard.id) }}">Vorschau starten</a>
+</div>
+{% endif %}
+{% endblock %}

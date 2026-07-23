@@ -29,6 +29,8 @@ DEFAULT_PERMISSIONS = [
     ("rc_devices.manage", "RC-Geräte anlegen/koppeln/deaktivieren"),
     ("units.view", "Drohneneinheiten ansehen"),
     ("units.manage", "Drohneneinheiten anlegen/bearbeiten/Manager zuweisen"),
+    ("wizards.view", "Wizards ansehen/Vorschau"),
+    ("wizards.manage", "Wizards anlegen/bearbeiten/Schritte konfigurieren"),
 ]
 
 DEFAULT_ROLES = [

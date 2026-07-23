@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}Wizards – Administration{% endblock %}
+{% block page_title %}Wizards{% endblock %}
+{% block content %}
+<div class="page-header">
+  <span></span>
+  {% if has_permission('wizards.manage') %}
+  <a class="btn btn-primary" href="{{ url_for('administration.wizard_new') }}">Neuer Wizard</a>
+  {% endif %}
+</div>
+<table class="table">
+  <thead>
+    <tr><th>Name</th><th>Schlüssel</th><th>Schritte</th><th>Status</th><th></th></tr>
+  </thead>
+  <tbody>
+    {% for wizard in wizards %}
+    <tr>
+      <td><a href="{{ url_for('administration.wizard_edit', wizard_id=wizard.id) }}">{{ wizard.name }}</a></td>
+      <td>{{ wizard.key }}</td>
+      <td>{{ wizard.steps | length }}</td>
+      <td>{% if wizard.is_active %}<span class="tag tag-accent">Aktiv</span>{% else %}<span class="tag tag-outline">Deaktiviert</span>{% endif %}</td>
+      <td>
+        <a class="btn btn-ghost" href="{{ url_for('administration.wizard_preview', wizard_id=wizard.id) }}">Vorschau</a>
+        {% if has_permission('wizards.manage') %}
+        <form method="post" action="{{ url_for('administration.wizard_toggle_active', wizard_id=wizard.id) }}" style="display:inline;">
+          <button type="submit" class="btn btn-ghost">{{ "Deaktivieren" if wizard.is_active else "Aktivieren" }}</button>
+        </form>
+        {% endif %}
+      </td>
+    </tr>
+    {% else %}
+    <tr><td colspan="5" class="text-muted">Noch keine Wizards angelegt.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

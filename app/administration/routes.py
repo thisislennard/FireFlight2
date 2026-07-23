@@ -1,7 +1,7 @@
 import re
 import uuid
 
-from flask import Blueprint, abort, current_app, redirect, render_template, request, url_for
+from flask import Blueprint, abort, current_app, redirect, render_template, request, session, url_for
 from flask_login import current_user, login_required
 
 from app.audit.models import AuditLog
@@ -45,6 +45,21 @@ from app.units.services import (
     unit_members,
     update_unit,
 )
+from app.wizards.models import Wizard, WizardStep
+from app.wizards.runner import WizardRunner, session_key
+from app.wizards.services import (
+    activate_wizard,
+    add_step,
+    config_from_form,
+    create_wizard,
+    deactivate_wizard,
+    delete_step,
+    list_wizards,
+    move_step,
+    update_step,
+    update_wizard,
+)
+from app.wizards.step_types import step_type_registry
 
 bp = Blueprint("administration", __name__, url_prefix="/administration")
 
@@ -448,3 +463,130 @@ def unit_toggle_active(unit_id):
         activate_unit(unit)
         log_event("unit.enable", result="success", object_type="unit", object_id=str(unit.id))
     return redirect(url_for("administration.units"))
+
+
+# --- Wizards (app/wizards/) -------------------------------------------------------------------
+
+@bp.route("/wizards")
+@permission_required("wizards.view")
+def wizards():
+    return render_template("administration/wizards.html", wizards=list_wizards(current_user.organization_id))
+
+
+@bp.route("/wizards/new", methods=["GET", "POST"])
+@permission_required("wizards.manage")
+def wizard_new():
+    error = None
+    if request.method == "POST":
+        try:
+            wizard = create_wizard(
+                current_user.organization_id,
+                key=request.form["key"].strip(),
+                name=request.form["name"].strip(),
+                description=request.form.get("description") or None,
+            )
+            log_event("wizard.create", result="success", object_type="wizard", object_id=str(wizard.id))
+            return redirect(url_for("administration.wizard_edit", wizard_id=wizard.id))
+        except ValidationError as exc:
+            error = exc.message
+    return render_template("administration/wizard_edit.html", wizard=None, error=error,
+                            step_types=step_type_registry.all())
+
+
+@bp.route("/wizards/<uuid:wizard_id>", methods=["GET", "POST"])
+@permission_required("wizards.manage")
+def wizard_edit(wizard_id):
+    wizard = Wizard.query.get_or_404(wizard_id)
+    if request.method == "POST":
+        update_wizard(
+            wizard,
+            name=request.form.get("name", wizard.name).strip() or wizard.name,
+            description=request.form.get("description") or None,
+        )
+        log_event("wizard.edit", result="success", object_type="wizard", object_id=str(wizard.id))
+        return redirect(url_for("administration.wizard_edit", wizard_id=wizard.id))
+    return render_template("administration/wizard_edit.html", wizard=wizard, error=None,
+                            step_types=step_type_registry.all())
+
+
+@bp.route("/wizards/<uuid:wizard_id>/toggle-active", methods=["POST"])
+@permission_required("wizards.manage")
+def wizard_toggle_active(wizard_id):
+    wizard = Wizard.query.get_or_404(wizard_id)
+    if wizard.is_active:
+        deactivate_wizard(wizard)
+        log_event("wizard.disable", result="success", object_type="wizard", object_id=str(wizard.id))
+    else:
+        activate_wizard(wizard)
+        log_event("wizard.enable", result="success", object_type="wizard", object_id=str(wizard.id))
+    return redirect(url_for("administration.wizard_edit", wizard_id=wizard.id))
+
+
+@bp.route("/wizards/<uuid:wizard_id>/steps", methods=["POST"])
+@permission_required("wizards.manage")
+def wizard_add_step(wizard_id):
+    wizard = Wizard.query.get_or_404(wizard_id)
+    definition = step_type_registry.get(request.form.get("step_type", ""))
+    if definition is None:
+        abort(400)
+    title = request.form.get("title", "").strip() or definition.label
+    step = add_step(wizard, step_type=definition.key, title=title, config=dict(definition.default_config))
+    log_event("wizard.step_add", result="success", object_type="wizard_step", object_id=str(step.id))
+    return redirect(url_for("administration.wizard_step_edit", wizard_id=wizard.id, step_id=step.id))
+
+
+@bp.route("/wizards/<uuid:wizard_id>/steps/<uuid:step_id>", methods=["GET", "POST"])
+@permission_required("wizards.manage")
+def wizard_step_edit(wizard_id, step_id):
+    step = WizardStep.query.filter_by(id=step_id, wizard_id=wizard_id).first_or_404()
+    definition = step_type_registry.get(step.step_type)
+    if request.method == "POST":
+        title = request.form.get("title", "").strip() or step.title
+        config = config_from_form(step.step_type, request.form)
+        update_step(step, title=title, config=config)
+        log_event("wizard.step_edit", result="success", object_type="wizard_step", object_id=str(step.id))
+        return redirect(url_for("administration.wizard_edit", wizard_id=wizard_id))
+    return render_template("administration/wizard_step_edit.html", step=step, definition=definition)
+
+
+@bp.route("/wizards/<uuid:wizard_id>/steps/<uuid:step_id>/delete", methods=["POST"])
+@permission_required("wizards.manage")
+def wizard_step_delete(wizard_id, step_id):
+    step = WizardStep.query.filter_by(id=step_id, wizard_id=wizard_id).first_or_404()
+    delete_step(step)
+    log_event("wizard.step_delete", result="success", object_type="wizard_step", object_id=str(step_id))
+    return redirect(url_for("administration.wizard_edit", wizard_id=wizard_id))
+
+
+@bp.route("/wizards/<uuid:wizard_id>/steps/<uuid:step_id>/move", methods=["POST"])
+@permission_required("wizards.manage")
+def wizard_step_move(wizard_id, step_id):
+    step = WizardStep.query.filter_by(id=step_id, wizard_id=wizard_id).first_or_404()
+    move_step(step, request.form.get("direction", ""))
+    return redirect(url_for("administration.wizard_edit", wizard_id=wizard_id))
+
+
+@bp.route("/wizards/<uuid:wizard_id>/preview", methods=["GET", "POST"])
+@permission_required("wizards.view")
+def wizard_preview(wizard_id):
+    wizard = Wizard.query.get_or_404(wizard_id)
+    key = session_key(wizard.id)
+    state = session.get(key, {})
+    runner = WizardRunner(wizard, state)
+
+    error = None
+    if request.method == "POST":
+        action = request.form.get("action", "next")
+        if action == "back":
+            runner.back()
+        elif action == "reset":
+            runner.reset()
+        elif not runner.submit(request.form):
+            error = "Bitte alle erforderlichen Angaben auf dieser Seite machen, bevor du weitergehst."
+        session[key] = runner.state
+        if error is None:
+            return redirect(url_for("administration.wizard_preview", wizard_id=wizard.id))
+
+    return render_template(
+        "administration/wizard_preview.html", wizard=wizard, runner=runner, error=error,
+    )

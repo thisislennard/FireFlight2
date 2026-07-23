@@ -210,16 +210,66 @@ erst nach allen Fachmodulen).
   den `admin`-Account ein von der Dokumentation abweichendes PIN (vermutlich aus einer früheren
   manuellen Testsitzung) -- lokal auf `4726` zurückgesetzt, kein Code-Bug.
 
-Testsuite insgesamt: 111/111 grün (`pytest`, lokal gegen `fireflight2_test`).
+- **Phase 8 — Wizard-Engine**: bewusst nur die generische Engine, nicht die konkreten Preflight-/
+  Flugstart-/Flugende-Inhalte aus dem Konzeptdokument Abschnitt 5.2-5.5 -- die sind Umfang von Phase 12
+  (RC-Wizard-Inhalte), sobald Phase 9 (Einsatz/Übung) und Phase 11 (RC-PWA-Vollausbau) existieren, an
+  die ein echter Wizard-Lauf andocken kann. Neues Kern-Package `app/wizards/`: `Wizard`/`WizardStep`
+  (Migration `bfe16e421ba5`, `WizardStep.config` als JSONB analog zu `DashboardWidget.config`),
+  Step-Typ-Registry (`app/wizards/step_types.py`, analog zu `dashboards/widgets.py`s
+  `WidgetRegistry`) mit fünf generischen Typen: `info` (reiner Text, immer weiterschaltbar),
+  `checklist` (alle Punkte müssen angehakt sein), `confirmation` (eine Bestätigungs-Checkbox),
+  `text_input` (Freitext, optional Pflicht), `choice` (eine Option aus fester Liste) -- deckt die in
+  Abschnitt 5.2-5.5 beschriebenen Inhalte (Preflight-Checkliste, Einsatz/Übung-Auswahl, Freitext-Zweck,
+  Abschlussfragen) ab, ohne sie bereits fest zu verdrahten. Bewusst **kein** `location`-Step-Typ (GPS+
+  Zeit-Auto-Erfassung aus Abschnitt 5.2/5.5) -- ohne echten Verbraucher wäre die nötige
+  Browser-Geolocation-JS-Anbindung unverifizierbar spekulativ, kommt mit Phase 9/12, wenn eine echte
+  Flugbuch-Persistenz dafür existiert.
+
+  `app/wizards/runner.py: WizardRunner` ist der generische Laufzeit-Motor (Schritt validieren → bei
+  Erfolg weiterschalten, sonst auf derselben Seite mit Fehlermeldung bleiben -- Konzeptdokument
+  Abschnitt 5.6: "Weiterkommen erst möglich, wenn bestimmte Aktionen ausgeführt wurden"), operiert auf
+  einem beliebigen mutable Zustands-Dict. Aktuell einziger Konsument ist die **Admin-Vorschau**
+  (`/administration/wizards/<id>/preview`, Zustand in der Flask-Session, rein ephemer) -- ein echter
+  RC-Lauf mit Persistenz in ein Flugbuch ist Phase-9/12-Umfang und wird dieselbe Validierungslogik
+  voraussichtlich mit einem anderen Zustands-Backend wiederverwenden. Bewusst **kein**
+  Zwei-Knopf-Ende-Bildschirm ("Selbe Person, neuer Flug" / "Komplett neu" aus Abschnitt 5.6) -- das ist
+  RC-Kiosk-spezifisch (Phase 11/12), die generische Vorschau hat nur "Neu starten". Bewusst **keine**
+  client-seitige Button-Deaktivierung per JS -- die serverseitige Gate-Prüfung erfüllt die fachliche
+  Anforderung vollständig, UI-Politur (Button erst aktiv, wenn erfüllt) ist Phase-11/12-Umfang für die
+  echte RC-Kiosk-Oberfläche.
+
+  Admin-CRUD unter `/administration/wizards` (neue Berechtigungen `wizards.view`/`wizards.manage`,
+  analog zu `units`/`rc_devices`): Wizard anlegen/bearbeiten/(de)aktivieren, Schritte hinzufügen
+  (Step-Typ wählen, startet mit `default_config`) / config-spezifisch bearbeiten (Formularfelder
+  dynamisch aus `WizardStepTypeDefinition.config_fields`, z. B. "eine Zeile je Punkt" für Checklisten-
+  Items) / löschen / per Auf-/Ab-Buttons neu sortieren (`move_step()` tauscht mit dem sortierten
+  Nachbarn, robust gegenüber Lücken nach Löschungen -- keine feste `position ± 1`-Arithmetik).
+  `flask seed-test-data` legt einen Beispiel-Wizard an, der alle fünf Step-Typen demonstriert.
+
+  Migration gegen die reale lokale Dev-DB verifiziert (Autogenerate schlug wieder das Droppen der
+  DJI-Alttabellen vor -- bewusst nicht übernommen, wie bei `ad2f3b109171`/`f07570aabbd1`). 30 neue
+  Tests (`tests/test_wizards.py`): Step-Typ-Validierung, Service-CRUD, `WizardRunner` (inkl. inaktiver
+  Schritte, Zurück/Reset), Admin-Routen, vollständiger Vorschau-Durchlauf. Live gegen den echten
+  Dev-Server verifiziert: kompletter 5-Schritt-Durchlauf des Beispiel-Wizards inkl. Checklisten-Gate
+  (unvollständig abgewiesen, vollständig durchgelassen), Freitext-Pflichtfeld-Gate, Abschluss-Bildschirm
+  und Reset; 403 für Nutzer ohne `wizards.*`-Berechtigung bestätigt. Testsuite 139/139 grün.
+  **Nebenfund bei der Live-Verifikation:** ein per `curl`/Bash unter Windows übergebener Umlaut
+  ("Übung") kam serverseitig verstümmelt an (Shell/curl-Encoding-Artefakt dieser Maschine, nicht
+  reproduzierbar mit Pythons `requests`-Bibliothek oder im echten Browser) -- kein Anwendungsfehler,
+  nur eine Einschränkung des `curl`-Testwerkzeugs auf dieser Maschine für nicht-ASCII-Formulardaten.
+
+Testsuite insgesamt: 139/139 grün (`pytest`, lokal gegen `fireflight2_test`).
 
 ### Als Nächstes (Reihenfolge s. Restrukturierungsplan)
 Hardware-Verifikation auf der echten DJI RC Plus (Phase 4/5 zusammen, s. o.: Push-Rundlauftest im
 normalen Browser zuerst, danach PWA-Installation über `/rc/pair` → `/rc/home` mit einem der beiden
 `seed-test-data`-Testgeräte, Hintergrund-Push, DJI-Pilot-2-Deep-Link-URL ermitteln und in
-Administration → RC-Geräte eintragen) → Phase 8 Wizard-Engine → Phase 9 Einsatz/Übung + Flugbuch →
-Phase 10 Tickets + Wartungsintervalle → Phase 11 RC-PWA-Vollausbau (u. a. das im Konzeptdokument
-Abschnitt 5.1 beschriebene Zwei-Schritt-Login mit Nutzerauswahl vor PIN-Eingabe) → Phase 12
-RC-Wizard-Inhalte → Phase 13 fachliche Dashboard-Module → Phase 14 externe Integrationen
+Administration → RC-Geräte eintragen) → Phase 9 Einsatz/Übung + Flugbuch → Phase 10 Tickets +
+Wartungsintervalle → Phase 11 RC-PWA-Vollausbau (u. a. das im Konzeptdokument Abschnitt 5.1
+beschriebene Zwei-Schritt-Login mit Nutzerauswahl vor PIN-Eingabe, sowie der Zwei-Knopf-Ende-Bildschirm
+aus Abschnitt 5.6) → Phase 12 RC-Wizard-Inhalte (verdrahtet die generische Wizard-Engine aus Phase 8
+mit echten Preflight-/Flugstart-/Flugende-Inhalten, inkl. eines neuen `location`-Step-Typs für
+GPS+Zeit-Auto-Erfassung) → Phase 13 fachliche Dashboard-Module → Phase 14 externe Integrationen
 (DWD/OpenSky) → Phase 15 Tests und Dokumentation.
 
 ---

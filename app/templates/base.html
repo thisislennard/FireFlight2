@@ -30,6 +30,7 @@
         {% if has_permission('audit.view') %}<a href="{{ url_for('administration.audit_log') }}" class="sidebar-link">Audit-Log</a>{% endif %}
         {% if has_permission('rc_devices.view') %}<a href="{{ url_for('administration.rc_devices') }}" class="sidebar-link">RC-Geräte</a>{% endif %}
         {% if has_permission('units.view') %}<a href="{{ url_for('administration.units') }}" class="sidebar-link">Drohneneinheiten</a>{% endif %}
+        {% if has_permission('wizards.view') %}<a href="{{ url_for('administration.wizards') }}" class="sidebar-link">Wizards</a>{% endif %}
       </nav>
       {% endif %}
     </aside>

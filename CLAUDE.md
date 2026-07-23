@@ -8,7 +8,7 @@ v1 bleibt unangetastet produktiv unter `G:\5 GitHub\FireFlight`. Volle Architekt
 **Vollständige Struktur-/Architektur-Vorgabe des Nutzers:** `docs/spec-struktur.md` (wörtliche Spezifikation vom 2026-07-19, Ausbaustufe 1). **Vollständige Design-Vorgabe:** `docs/spec-design.md` (Design-Tokens, Komponenten-CSS, Begründungen). **Konzeptvorgabe Ausbaustufe 2:** `fireflight2-konzept-struktur.md` (Fachmodule + PWA/Push, vom Nutzer 2026-07-23 geliefert) — daraus abgeleiteter Restrukturierungs-/Phasenplan wurde vom Nutzer freigegeben, liegt nicht im Repo. **Umsetzungsstand/Roadmap:** `docs/roadmap.md` — was aus welcher Ausbaustufe bereits implementiert und live verifiziert ist, was noch offen ist, was bewusst verschoben wurde. Vor jeder neuen Session zuerst dort nachsehen. Diese Datei hier fasst zusammen und verweist dorthin — bei Detailfragen zuerst dort nachsehen.
 
 ## Umsetzungsstand
-Ausbaustufe 1 aus `docs/spec-struktur.md` ist **implementiert und lokal live verifiziert** (venv + lokales PostgreSQL, da auf dieser Maschine kein Docker installiert ist): Datenmodell, Auth, Rollen/Berechtigungen, Dashboards, Modul-Registry, Administration, CLI-Init, Templates/Design. Ausbaustufe 2 (Fachmodule + PWA/Push aus `fireflight2-konzept-struktur.md`) ist **in Arbeit** — Phase 1 (Modul-Registry-Bootstrap), Phase 2 (Rollen ohne Dashboard), Phase 3 (PIN-Login-Migration, Passwort komplett ersetzt), Phase 4 (Notifications-Kern, Web-Push), Phase 5 (RC-Hardware-Feasibility-Spike, reduzierter Umfang), Phase 6 (Drohneneinheiten) und Phase 7 (Nutzerprofil-Erweiterung inkl. scharf geschaltetem RC-Qualifikationsfilter) sind umgesetzt und getestet, weitere 8 Phasen (Wizard-Engine, Missions/Logbuch, Tickets, RC-PWA-Vollausbau, Dashboard-Module, externe Integrationen) stehen aus. Die eigentliche Hardware-Verifikation von Phase 4/5 (echter Browser-/RC-Push-Rundlauf auf der realen DJI RC Plus) ist noch offen — nur Code + automatisierte Tests + `curl`-Rundlauf gegen den Dev-Server sind verifiziert. Die zuvor implementierte DJI-FlightHub-2-Integration wurde am 2026-07-23 auf Nutzerwunsch **komplett wieder entfernt** (kein Fachmodul/keine Integration soll den Kern ablenken, bevor dieser fertig steht) — Details im Verlauf unten. Details, offene Punkte und nächste Schritte: `docs/roadmap.md`.
+Ausbaustufe 1 aus `docs/spec-struktur.md` ist **implementiert und lokal live verifiziert** (venv + lokales PostgreSQL, da auf dieser Maschine kein Docker installiert ist): Datenmodell, Auth, Rollen/Berechtigungen, Dashboards, Modul-Registry, Administration, CLI-Init, Templates/Design. Ausbaustufe 2 (Fachmodule + PWA/Push aus `fireflight2-konzept-struktur.md`) ist **in Arbeit** — Phase 1 (Modul-Registry-Bootstrap), Phase 2 (Rollen ohne Dashboard), Phase 3 (PIN-Login-Migration, Passwort komplett ersetzt), Phase 4 (Notifications-Kern, Web-Push), Phase 5 (RC-Hardware-Feasibility-Spike, reduzierter Umfang), Phase 6 (Drohneneinheiten), Phase 7 (Nutzerprofil-Erweiterung inkl. scharf geschaltetem RC-Qualifikationsfilter) und Phase 8 (generische Wizard-Engine, noch ohne echte Fachinhalte) sind umgesetzt und getestet, weitere 7 Phasen (Missions/Logbuch, Tickets, RC-PWA-Vollausbau, RC-Wizard-Inhalte, Dashboard-Module, externe Integrationen) stehen aus. Die eigentliche Hardware-Verifikation von Phase 4/5 (echter Browser-/RC-Push-Rundlauf auf der realen DJI RC Plus) ist noch offen — nur Code + automatisierte Tests + `curl`-Rundlauf gegen den Dev-Server sind verifiziert. Die zuvor implementierte DJI-FlightHub-2-Integration wurde am 2026-07-23 auf Nutzerwunsch **komplett wieder entfernt** (kein Fachmodul/keine Integration soll den Kern ablenken, bevor dieser fertig steht) — Details im Verlauf unten. Details, offene Punkte und nächste Schritte: `docs/roadmap.md`.
 
 ## Warum Neuentwicklung statt Weiterentwicklung von v1
 - **Technische Basis modernisieren** — weg vom frameworklosen Python-Stdlib-HTTP-Server (`http.server.ThreadingHTTPServer`) aus v1
@@ -66,6 +66,41 @@ Vollständige Liste: `FireFlight/README.md`, Abschnitt „Funktionen". Kurzfassu
 - **Passwort-Hashing** in v1: PBKDF2-HMAC-SHA256, 120.000 Iterationen, 16-Byte-Salt — als Mindeststandard falls kein Framework-Default (z. B. Flask-Bcrypt) gewählt wird
 
 ## Verlauf / Planungsentscheidungen
+### 2026-07-23 (Fortsetzung) — Phase 8: Wizard-Engine (generisch) umgesetzt
+Auf "okay dann mach mal weiter" direkt im Anschluss an Phase 7 begonnen. Als Vorlage diente das
+Dashboard-Widget-System (`app/dashboards/`) — architektonisch am nächsten dran: eine Registry
+konfigurierbarer Bausteintypen + eine JSONB-`config`-Spalte pro Instanz + Admin-CRUD. Vollständige
+technische Details in `docs/roadmap.md` Abschnitt „Status: Ausbaustufe 2".
+
+Wichtigste Scope-Entscheidung: Phase 8 liefert **nur die generische Engine** (`Wizard`/`WizardStep`,
+fünf generische Step-Typen: `info`/`checklist`/`confirmation`/`text_input`/`choice`, Admin-Builder,
+Admin-Vorschau), nicht die konkreten Preflight-/Flugstart-/Flugende-Inhalte aus dem Konzeptdokument
+Abschnitt 5.2-5.5 — die Roadmap führt „Phase 8 Wizard-Engine" und „Phase 12 RC-Wizard-Inhalte" explizit
+getrennt, letztere setzt Phase 9 (Einsatz/Übung) und Phase 11 (RC-PWA-Vollausbau) voraus, an die ein
+echter Lauf andocken kann. Bewusst kein `location`-Step-Typ (GPS+Zeit-Auto-Erfassung) — ohne echten
+Konsumenten wäre die Browser-Geolocation-JS-Anbindung unverifizierbar spekulativ gewesen. Bewusst auch
+kein Zwei-Knopf-Ende-Bildschirm ("Selbe Person, neuer Flug"/"Komplett neu") und keine client-seitige
+Button-Deaktivierung per JS — beides RC-Kiosk-Politur, die serverseitige Gate-Prüfung erfüllt die
+fachliche Anforderung ("Weiterkommen erst möglich, wenn bestimmte Aktionen ausgeführt wurden") bereits
+vollständig.
+
+`app/wizards/runner.py: WizardRunner` ist bewusst generisch auf ein beliebiges mutable Zustands-Dict
+geschrieben (aktuell die Flask-Session für die Admin-Vorschau) statt direkt an ein DB-Modell gebunden —
+ein echter RC-Lauf mit Flugbuch-Persistenz (Phase 9/12) kann dieselbe Validierungslogik mit einem
+anderen Zustands-Backend wiederverwenden, ohne dass zum jetzigen Zeitpunkt schon geraten werden musste,
+wie Phase 9 ihre Datenhaltung gestaltet.
+
+**Live verifiziert** gegen den echten Dev-Server: kompletter 5-Schritt-Durchlauf des per
+`seed-test-data` angelegten Beispiel-Wizards (Info → Checkliste mit Gate-Test unvollständig/vollständig
+→ Auswahl → Freitext mit Pflichtfeld-Gate-Test → Bestätigung → Abschluss-Bildschirm → Reset), 403 für
+Nutzer ohne `wizards.*`-Berechtigung. **Nebenfund:** ein per `curl` unter Windows Git Bash übergebener
+Umlaut ("Übung") kam serverseitig verstümmelt an — mit Pythons `requests`-Bibliothek reproduzierbar
+korrekt, also ein Encoding-Artefakt des `curl`-Testwerkzeugs auf dieser Maschine, kein Anwendungsfehler
+(Formulardaten werden serverseitig korrekt als UTF-8 dekodiert). Testsuite 139/139 grün (30 neue Tests
+in `tests/test_wizards.py`). Migration `bfe16e421ba5` gegen die reale Dev-DB angewendet, Drift-Check
+zeigt nur die bekannten DJI-Alttabellen (Autogenerate schlug erneut deren Drop vor — wie bei
+`ad2f3b109171`/`f07570aabbd1` bewusst nicht übernommen).
+
 ### 2026-07-23 (Fortsetzung) — Phase 7: Nutzerprofil-Erweiterung umgesetzt
 Auf "schau dir die Roadmap an und arbeite weiter" begonnen. Der Restrukturierungsplan mit den
 Phase-7-Details liegt nicht im Repo; als Quelle diente stattdessen `fireflight2-konzept-struktur.md`

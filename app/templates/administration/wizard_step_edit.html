@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}Wizard-Schritt – Administration{% endblock %}
+{% block page_title %}Schritt bearbeiten ({{ definition.label }}){% endblock %}
+{% block content %}
+<form method="post" class="card elev-sm" style="max-width:560px;">
+  <div class="field"><label>Titel</label><input class="input" type="text" name="title" value="{{ step.title }}" required></div>
+  {% for field in definition.config_fields %}
+  <div class="field">
+    <label>{{ field.label }}</label>
+    {% if field.kind == "textarea" %}
+    <textarea class="input" name="{{ field.key }}">{{ step.config.get(field.key, "") }}</textarea>
+    {% elif field.kind == "lines" %}
+    <textarea class="input" name="{{ field.key }}" placeholder="Eine Zeile je Eintrag">{{ (step.config.get(field.key, []) or []) | join("\n") }}</textarea>
+    {% elif field.kind == "bool" %}
+    <label class="checkbox-row"><input type="checkbox" name="{{ field.key }}" {% if step.config.get(field.key) %}checked{% endif %}> Aktiv</label>
+    {% else %}
+    <input class="input" type="text" name="{{ field.key }}" value="{{ step.config.get(field.key, '') }}">
+    {% endif %}
+  </div>
+  {% endfor %}
+  <div class="form-actions">
+    <button type="submit" class="btn btn-primary">Speichern</button>
+    <a class="btn btn-secondary" href="{{ url_for('administration.wizard_edit', wizard_id=step.wizard_id) }}">Zurück zum Wizard</a>
+  </div>
+</form>
+{% endblock %}

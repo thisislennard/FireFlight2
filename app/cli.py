@@ -100,6 +100,8 @@ def register_cli(app: Flask) -> None:
         from app.rc.services import create_device
         from app.units.models import Unit
         from app.units.services import assign_home_unit, create_unit, set_unit_managers
+        from app.wizards.models import Wizard
+        from app.wizards.services import add_step, create_wizard
 
         organization = Organization.query.first()
         if organization is None:
@@ -169,5 +171,31 @@ def register_cli(app: Flask) -> None:
                 assign_home_unit(member, unit.id)
             created_units += 1
         click.echo(f"{created_units} neue Drohneneinheiten angelegt (sofern noch nicht vorhanden).")
+
+        # Beispiel-Wizard (Phase 8), deckt alle fünf Step-Typen ab -- dient sowohl als Anschauungs-
+        # material für die Admin-Vorschau als auch als Fixture für Tests.
+        if Wizard.query.filter_by(organization_id=organization.id, key="beispiel_wizard").first() is None:
+            wizard = create_wizard(
+                organization.id, key="beispiel_wizard", name="Beispiel-Wizard",
+                description="Demonstriert alle Step-Typen der Wizard-Engine (Phase 8).",
+            )
+            add_step(wizard, step_type="info", title="Willkommen", config={
+                "body": "Dieser Beispiel-Wizard zeigt alle verfügbaren Step-Typen."
+            })
+            add_step(wizard, step_type="checklist", title="Preflight-Checkliste", config={
+                "items": ["Flug angemeldet", "Drohne aufgeklappt", "Umfeld beachtet", "Luftraum kontrolliert"]
+            })
+            add_step(wizard, step_type="choice", title="Art des Fluges", config={
+                "label": "Handelt es sich um einen Einsatz oder eine Übung?", "options": ["Einsatz", "Übung"]
+            })
+            add_step(wizard, step_type="text_input", title="Zweck", config={
+                "label": "Worum geht es?", "required": True
+            })
+            add_step(wizard, step_type="confirmation", title="Bestätigung", config={
+                "label": "Ich habe alle Angaben wahrheitsgemäß gemacht."
+            })
+            click.echo("Beispiel-Wizard angelegt.")
+        else:
+            click.echo("Beispiel-Wizard existiert bereits.")
 
         click.echo("Testdaten sichergestellt.")
