@@ -38,6 +38,10 @@
       <label class="checkbox-row"><input type="radio" name="answer" value="{{ option }}"> {{ option }}</label>
       {% endfor %}
     </div>
+    {% elif step.step_type == "location" %}
+    <p class="card-body">{{ step.config.get("label", "") }}</p>
+    <input type="hidden" name="lat"><input type="hidden" name="lon">
+    <button type="button" class="btn btn-secondary" data-geolocate-target="">Standort jetzt erfassen</button>
     {% endif %}
     <div class="form-actions" style="justify-content:space-between;">
       <button type="submit" name="action" value="back" class="btn btn-secondary" {% if runner.progress[0] == 0 %}disabled{% endif %}>Zurück</button>
@@ -52,4 +56,5 @@
 <div class="form-actions" style="max-width:480px;">
   <a class="btn btn-ghost" href="{{ url_for('administration.wizard_edit', wizard_id=wizard.id) }}">Zurück zum Editor</a>
 </div>
+<script src="{{ url_for('static', filename='js/geolocation_capture.js') }}"></script>
 {% endblock %}

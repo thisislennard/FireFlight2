@@ -145,3 +145,37 @@ step_type_registry.register(
         validate=lambda config, answer: answer in (config.get("options") or []),
     )
 )
+
+
+# --- location: GPS-Auto-Erfassung (Phase 12, Konzeptdokument Abschnitt 5.2/5.5: "PWA erfasst
+# automatisch Standort und Uhrzeit") -------------------------------------------------------------
+#
+# Bewusst erst jetzt eingeführt (in Phase 8 zurückgestellt) -- jetzt gibt es mit dem RC-Preflight-/
+# Flugende-Ablauf (app/rc/wizard_flow.py) einen echten Verbraucher, der die Browser-Geolocation-JS-
+# Anbindung tatsächlich verifizieren kann, statt sie spekulativ zu bauen. `lat`/`lon` werden von
+# `static/js/geolocation_capture.js` (aus Phase 9, hier um einen Wizard-Modus erweitert) in
+# versteckte Formularfelder geschrieben, bevor "Weiter" den Schritt einreicht.
+
+def _validate_location(config, answer):
+    return isinstance(answer, dict) and answer.get("lat") is not None and answer.get("lon") is not None
+
+
+def _parse_location_answer(form, config):
+    try:
+        lat = float(form.get("lat", ""))
+        lon = float(form.get("lon", ""))
+    except (TypeError, ValueError):
+        return {"lat": None, "lon": None}
+    return {"lat": lat, "lon": lon}
+
+
+step_type_registry.register(
+    WizardStepTypeDefinition(
+        key="location",
+        label="Standort erfassen",
+        default_config={"label": "Aktueller Standort"},
+        config_fields=(ConfigField("label", "Beschriftung", "text"),),
+        parse_answer=_parse_location_answer,
+        validate=_validate_location,
+    )
+)

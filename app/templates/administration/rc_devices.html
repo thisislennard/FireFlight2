@@ -53,6 +53,26 @@
       <input class="input" type="text" name="dji_pilot2_deeplink_url" value="{{ dji_pilot2_deeplink }}"
              placeholder="z. B. dji://open" {% if not has_permission('rc_devices.manage') %}disabled{% endif %}>
     </div>
+    <div class="field">
+      <label>Preflight-Wizard</label>
+      <select class="input" name="preflight_wizard_id" {% if not has_permission('rc_devices.manage') %}disabled{% endif %}>
+        <option value="">Keiner</option>
+        {% for wizard in wizards %}
+        <option value="{{ wizard.id }}" {% if preflight_wizard_id == wizard.id | string %}selected{% endif %}>{{ wizard.name }}</option>
+        {% endfor %}
+      </select>
+      <p class="text-muted">Läuft nach dem RC-Login, bevor "Flug starten" verfügbar wird.</p>
+    </div>
+    <div class="field">
+      <label>Flugende-Wizard</label>
+      <select class="input" name="flight_end_wizard_id" {% if not has_permission('rc_devices.manage') %}disabled{% endif %}>
+        <option value="">Keiner</option>
+        {% for wizard in wizards %}
+        <option value="{{ wizard.id }}" {% if flight_end_wizard_id == wizard.id | string %}selected{% endif %}>{{ wizard.name }}</option>
+        {% endfor %}
+      </select>
+      <p class="text-muted">Läuft, wenn der Pilot am Ende des Flugs "Flug beenden" antippt.</p>
+    </div>
     {% if has_permission('rc_devices.manage') %}
     <button type="submit" class="btn btn-secondary">Speichern</button>
     {% endif %}

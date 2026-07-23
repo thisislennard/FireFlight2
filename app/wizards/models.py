@@ -50,6 +50,13 @@ class WizardStep(UUIDPrimaryKeyMixin, TimestampMixin, db.Model):
     # WizardStepTypeDefinition.config_fields -- analog zu DashboardWidget.config.
     config: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    # Optionale Zuordnung der Antwort dieses Schritts zu einem fachlichen Feld (Phase 12) -- die
+    # Wizard-Engine selbst kennt keine Fachlogik, `field_key` ist nur ein freies Schlüsselwort, das
+    # ein *Verbraucher* (z. B. app/rc/wizard_flow.py für den Preflight-/Flugende-Wizard) interpretiert,
+    # um Antworten generisch auf Flight-/Incident-Felder abzubilden, ohne die Engine an ein
+    # bestimmtes Fachmodul zu koppeln. Schritte ohne field_key (z. B. eine Checkliste) schalten nur
+    # weiter, ohne irgendwo gespeichert zu werden.
+    field_key: Mapped[str | None] = mapped_column(String(100))
 
     wizard = relationship("Wizard", back_populates="steps")
 

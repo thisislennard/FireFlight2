@@ -45,6 +45,7 @@ from app.units.services import (
     unit_members,
     update_unit,
 )
+from app.modules.incidents.wizard_fields import RC_WIZARD_FIELD_CHOICES
 from app.wizards.models import Wizard, WizardStep
 from app.wizards.runner import WizardRunner, session_key
 from app.wizards.services import (
@@ -351,12 +352,17 @@ def rc_devices():
     if request.method == "POST":
         ensure_permission(get_active_role(), "rc_devices.manage")
         set_setting("rc_dji_pilot2_deeplink_url", request.form.get("dji_pilot2_deeplink_url", "").strip() or None)
+        set_setting("rc_preflight_wizard_id", request.form.get("preflight_wizard_id") or None)
+        set_setting("rc_flight_end_wizard_id", request.form.get("flight_end_wizard_id") or None)
         log_event("rc_device.deeplink_updated", result="success")
         return redirect(url_for("administration.rc_devices"))
     return render_template(
         "administration/rc_devices.html",
         devices=list_devices(current_user.organization_id),
         dji_pilot2_deeplink=get_setting("rc_dji_pilot2_deeplink_url") or "",
+        wizards=list_wizards(current_user.organization_id),
+        preflight_wizard_id=get_setting("rc_preflight_wizard_id") or "",
+        flight_end_wizard_id=get_setting("rc_flight_end_wizard_id") or "",
     )
 
 
@@ -543,10 +549,13 @@ def wizard_step_edit(wizard_id, step_id):
     if request.method == "POST":
         title = request.form.get("title", "").strip() or step.title
         config = config_from_form(step.step_type, request.form)
-        update_step(step, title=title, config=config)
+        update_step(step, title=title, config=config, field_key=request.form.get("field_key"))
         log_event("wizard.step_edit", result="success", object_type="wizard_step", object_id=str(step.id))
         return redirect(url_for("administration.wizard_edit", wizard_id=wizard_id))
-    return render_template("administration/wizard_step_edit.html", step=step, definition=definition)
+    return render_template(
+        "administration/wizard_step_edit.html", step=step, definition=definition,
+        field_choices=RC_WIZARD_FIELD_CHOICES,
+    )
 
 
 @bp.route("/wizards/<uuid:wizard_id>/steps/<uuid:step_id>/delete", methods=["POST"])

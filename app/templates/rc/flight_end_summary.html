@@ -1,0 +1,18 @@
+{% extends "rc/base.html" %}
+{% block title %}Flug beendet – FireFlight2 RC{% endblock %}
+{% block content %}
+<div class="auth-card">
+  <div class="card elev-md">
+    <h2 style="font-size:20px;">Flug beendet</h2>
+    <p class="card-body">Wie geht es weiter?</p>
+    <form method="post" action="{{ url_for('rc.flight_end_restart') }}" style="margin-bottom: var(--space-2);">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button type="submit" class="btn btn-primary btn-block">Selbe Person, neuer Flug</button>
+    </form>
+    <form method="post" action="{{ url_for('rc.logout') }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button type="submit" class="btn btn-ghost btn-block">Komplett neu</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

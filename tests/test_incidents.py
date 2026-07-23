@@ -4,15 +4,29 @@ import pytest
 
 from app.core.exceptions import ValidationError
 from app.extensions import db
-from app.modules.incidents.models import Flight, Incident
+from app.modules.incidents.models import (
+    FLIGHT_STATUS_APPROVED,
+    FLIGHT_STATUS_DRAFT,
+    FLIGHT_STATUS_PENDING_APPROVAL,
+    KIND_EINSATZ,
+    KIND_UEBUNG,
+    Flight,
+    Incident,
+)
 from app.modules.incidents.services import (
     add_flight,
+    approve_flight_start,
     close_incident,
+    complete_flight,
+    create_draft_flight,
     create_incident,
     delete_flight,
     list_flights_with_location,
+    list_pending_approval_flights,
     logbook_summary,
+    normalize_incident_kind,
     reopen_incident,
+    request_flight_start,
     update_flight,
 )
 from tests.conftest import login
@@ -108,6 +122,132 @@ def test_logbook_summary_filters_by_year_and_month(app, organization):
     assert rows_june[pilot.id]["uebung_count"] == 1
 
     assert logbook_summary(organization.id, year=2026, month=5) == []
+
+
+# --- Startanfrage-Workflow (Phase 12) -----------------------------------------------------------
+
+
+def test_normalize_incident_kind():
+    assert normalize_incident_kind("Einsatz") == KIND_EINSATZ
+    assert normalize_incident_kind("einsatz") == KIND_EINSATZ
+    assert normalize_incident_kind("Übung") == KIND_UEBUNG
+    assert normalize_incident_kind("Sonstiges") == KIND_UEBUNG
+    assert normalize_incident_kind(None) == KIND_UEBUNG
+
+
+def test_create_draft_flight_sets_status_and_start_fields(app, organization, roles):
+    from app.auth.services import create_user
+
+    pilot = create_user(
+        organization_id=organization.id, username="draftpilot", email="draftpilot@example.org",
+        pin="4726", display_name="Draft Pilot",
+    )
+    incident = create_incident(organization.id, kind="uebung", title="T")
+    flight = create_draft_flight(incident, pilot=pilot, purpose="Testflug", start_lat=50.1, start_lon=8.5)
+
+    assert flight.flight_status == FLIGHT_STATUS_DRAFT
+    assert flight.pilot_id == pilot.id
+    assert flight.camera_operator_id is None
+    assert flight.started_at is not None
+    assert flight.start_lat == 50.1
+    assert flight.start_lon == 8.5
+
+
+def test_request_and_approve_flight_start(app, organization, admin_user):
+    incident = create_incident(organization.id, kind="uebung", title="T")
+    flight = create_draft_flight(incident, pilot=admin_user)
+
+    request_flight_start(flight)
+    assert flight.flight_status == FLIGHT_STATUS_PENDING_APPROVAL
+    assert flight.start_requested_at is not None
+
+    approve_flight_start(flight, approved_by=admin_user)
+    assert flight.flight_status == FLIGHT_STATUS_APPROVED
+    assert flight.start_approved_at is not None
+    assert flight.start_approved_by_id == admin_user.id
+
+
+def test_list_pending_approval_flights_filters_correctly(app, organization):
+    incident = create_incident(organization.id, kind="uebung", title="T")
+    draft = create_draft_flight(incident)
+    pending = create_draft_flight(incident)
+    request_flight_start(pending)
+    approved = create_draft_flight(incident)
+    request_flight_start(approved)
+    approve_flight_start(approved, approved_by=None)
+
+    result_ids = {f.id for f in list_pending_approval_flights(organization.id)}
+    assert result_ids == {pending.id}
+    assert draft.id not in result_ids
+    assert approved.id not in result_ids
+
+
+def test_complete_flight_sets_end_fields_and_status(app, organization):
+    incident = create_incident(organization.id, kind="uebung", title="T")
+    flight = create_draft_flight(incident)
+    request_flight_start(flight)
+    approve_flight_start(flight, approved_by=None)
+
+    complete_flight(flight, end_lat=50.2, end_lon=8.6, synced=True, had_issues=False, notes="Alles gut")
+
+    assert flight.flight_status == "completed"
+    assert flight.ended_at is not None
+    assert flight.end_lat == 50.2
+    assert flight.end_lon == 8.6
+    assert flight.synced is True
+    assert flight.had_issues is False
+    assert flight.notes == "Alles gut"
+
+
+# --- Routen: Startanfragen -----------------------------------------------------------------------
+
+
+def test_pending_approvals_requires_permission(client, app, organization, roles):
+    from app.auth.services import create_user
+
+    user = create_user(
+        organization_id=organization.id, username="norights_approve", email="norights_approve@example.org",
+        pin="4726", display_name="Ohne Rechte",
+    )
+    user.roles = [roles["pilot_camera"]]  # hat incidents.edit, aber nicht incidents.approve_flights
+    db.session.commit()
+
+    login(client, username="norights_approve")
+    client.post(f"/roles/activate/{roles['pilot_camera'].id}")
+    response = client.get("/incidents/freigaben")
+    assert response.status_code == 403
+
+
+def test_flight_leader_can_approve_flight(client, app, organization, roles):
+    from app.auth.services import create_user
+
+    leader = create_user(
+        organization_id=organization.id, username="leader1", email="leader1@example.org",
+        pin="4726", display_name="Leader Eins",
+    )
+    leader.roles = [roles["flight_leader"]]
+    pilot = create_user(
+        organization_id=organization.id, username="approvee", email="approvee@example.org",
+        pin="4726", display_name="Approvee",
+    )
+    db.session.commit()
+
+    incident = create_incident(organization.id, kind="uebung", title="T")
+    flight = create_draft_flight(incident, pilot=pilot)
+    request_flight_start(flight)
+
+    login(client, username="leader1")
+    client.post(f"/roles/activate/{roles['flight_leader'].id}")
+
+    response = client.get("/incidents/freigaben")
+    assert response.status_code == 200
+    assert pilot.display_name in response.get_data(as_text=True)
+
+    approve_response = client.post(f"/incidents/{incident.id}/flights/{flight.id}/approve")
+    assert approve_response.status_code == 302
+    db.session.refresh(flight)
+    assert flight.flight_status == FLIGHT_STATUS_APPROVED
+    assert flight.start_approved_by_id == leader.id
 
 
 # --- Routen ------------------------------------------------------------------------------------

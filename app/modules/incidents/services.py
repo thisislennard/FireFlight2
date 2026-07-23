@@ -6,8 +6,19 @@ from sqlalchemy import extract
 
 from app.auth.models import User
 from app.core.exceptions import ValidationError
+from app.core.models import utcnow
 from app.extensions import db
-from app.modules.incidents.models import KIND_EINSATZ, INCIDENT_KINDS, Flight, Incident
+from app.modules.incidents.models import (
+    FLIGHT_STATUS_APPROVED,
+    FLIGHT_STATUS_COMPLETED,
+    FLIGHT_STATUS_DRAFT,
+    FLIGHT_STATUS_PENDING_APPROVAL,
+    INCIDENT_KINDS,
+    KIND_EINSATZ,
+    KIND_UEBUNG,
+    Flight,
+    Incident,
+)
 
 
 def list_incidents(organization_id: uuid.UUID, *, include_closed: bool = True) -> list[Incident]:
@@ -77,6 +88,75 @@ def list_flights_with_location(organization_id: uuid.UUID) -> list[Flight]:
         )
         .all()
     )
+
+
+def normalize_incident_kind(raw: str | None) -> str:
+    """Bildet die freie Antwort eines Wizard-"choice"-Schritts (Admin-konfigurierter Options-Text)
+    auf einen der beiden festen Incident-Kind-Werte ab (Phase 12, app/rc/wizard_flow.py) --
+    tolerant gegenüber Groß-/Kleinschreibung, fällt auf "uebung" zurück, wenn der Text nicht
+    eindeutig nach "Einsatz" klingt (der sicherere Default: eine fälschlich als Übung geloggte
+    Übung ist unkritisch, ein fälschlich als Übung geloggter Einsatz verzerrt die Statistik mehr)."""
+    return KIND_EINSATZ if "einsatz" in (raw or "").strip().lower() else KIND_UEBUNG
+
+
+def create_draft_flight(
+    incident: Incident, *, pilot=None, camera_operator=None, drone_label: str | None = None,
+    purpose: str | None = None, start_lat: float | None = None, start_lon: float | None = None,
+) -> Flight:
+    """Preflight-Wizard abgeschlossen (Konzeptdokument Abschnitt 5.2): legt den Flug mit Start-
+    Zeitpunkt+Standort an, aber noch ohne Freigabe -- "Flug starten" (request_flight_start) ist ein
+    separater, späterer Schritt."""
+    flight = Flight(
+        incident_id=incident.id,
+        pilot_id=pilot.id if pilot else None,
+        camera_operator_id=camera_operator.id if camera_operator else None,
+        drone_label=drone_label,
+        purpose=purpose,
+        started_at=utcnow(),
+        start_lat=start_lat,
+        start_lon=start_lon,
+        flight_status=FLIGHT_STATUS_DRAFT,
+    )
+    db.session.add(flight)
+    db.session.commit()
+    return flight
+
+
+def request_flight_start(flight: Flight) -> None:
+    flight.flight_status = FLIGHT_STATUS_PENDING_APPROVAL
+    flight.start_requested_at = utcnow()
+    db.session.commit()
+
+
+def approve_flight_start(flight: Flight, *, approved_by) -> None:
+    flight.flight_status = FLIGHT_STATUS_APPROVED
+    flight.start_approved_at = utcnow()
+    flight.start_approved_by_id = approved_by.id if approved_by else None
+    db.session.commit()
+
+
+def list_pending_approval_flights(organization_id: uuid.UUID) -> list[Flight]:
+    return (
+        Flight.query.join(Incident)
+        .filter(Incident.organization_id == organization_id, Flight.flight_status == FLIGHT_STATUS_PENDING_APPROVAL)
+        .order_by(Flight.start_requested_at)
+        .all()
+    )
+
+
+def complete_flight(
+    flight: Flight, *, end_lat: float | None = None, end_lon: float | None = None,
+    synced: bool = False, had_issues: bool = False, notes: str | None = None,
+) -> None:
+    """Flugende-Wizard abgeschlossen (Konzeptdokument Abschnitt 5.5)."""
+    flight.ended_at = utcnow()
+    flight.end_lat = end_lat
+    flight.end_lon = end_lon
+    flight.synced = synced
+    flight.had_issues = had_issues
+    flight.notes = notes
+    flight.flight_status = FLIGHT_STATUS_COMPLETED
+    db.session.commit()
 
 
 def logbook_summary(organization_id: uuid.UUID, *, year: int | None = None, month: int | None = None) -> list[dict]:

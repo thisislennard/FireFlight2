@@ -5,10 +5,13 @@ document.addEventListener("DOMContentLoaded", function () {
         alert("Geolokalisierung wird von diesem Browser nicht unterstützt.");
         return;
       }
+      // Leeres data-geolocate-target (Wizard-"location"-Step, s. app/wizards/step_types.py) füllt
+      // schlichte "lat"/"lon"-Felder statt der "start_"/"end_"-Präfixe aus dem Flug-Formular
+      // (app/modules/incidents/).
       var target = button.getAttribute("data-geolocate-target");
       var form = button.closest("form");
-      var latInput = form.querySelector('[name="' + target + '_lat"]');
-      var lonInput = form.querySelector('[name="' + target + '_lon"]');
+      var latInput = form.querySelector('[name="' + (target ? target + "_lat" : "lat") + '"]');
+      var lonInput = form.querySelector('[name="' + (target ? target + "_lon" : "lon") + '"]');
       var originalText = button.textContent;
       button.disabled = true;
       button.textContent = "Standort wird ermittelt…";

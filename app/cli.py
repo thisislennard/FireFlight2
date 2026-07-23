@@ -154,6 +154,16 @@ def register_cli(app: Flask) -> None:
             create_ticket,
             mark_maintenance_completed,
         )
+        from app.core.models import set_setting
+        from app.modules.incidents.wizard_fields import (
+            FIELD_KEY_END_LOCATION,
+            FIELD_KEY_HAD_ISSUES,
+            FIELD_KEY_INCIDENT_KIND,
+            FIELD_KEY_NOTES,
+            FIELD_KEY_PURPOSE,
+            FIELD_KEY_START_LOCATION,
+            FIELD_KEY_SYNCED,
+        )
         from app.units.models import Unit
         from app.units.services import assign_home_unit, create_unit, set_unit_managers
         from app.wizards.models import Wizard
@@ -334,5 +344,49 @@ def register_cli(app: Flask) -> None:
             click.echo("Beispiel-Wartungsregeln angelegt.")
         else:
             click.echo("Beispiel-Wartungsregeln existieren bereits.")
+
+        # RC-Preflight-/Flugende-Wizards (Phase 12) -- echte Inhalte statt des generischen
+        # Beispiel-Wizards aus Phase 8, mit field_key-Zuordnung auf Flight-/Incident-Felder
+        # (app/modules/incidents/wizard_fields.py). Werden zusätzlich als SystemSetting hinterlegt,
+        # damit die seed-Testgeräte ohne manuellen Admin-Schritt sofort nutzbar sind.
+        if Wizard.query.filter_by(organization_id=organization.id, key="rc_preflight_test").first() is None:
+            preflight_wizard = create_wizard(
+                organization.id, key="rc_preflight_test", name="RC-Preflight (Test)",
+                description="Preflight-Check vor Flugstart (Konzeptdokument Abschnitt 5.2).",
+            )
+            add_step(preflight_wizard, step_type="checklist", title="Preflight-Checkliste", config={
+                "items": ["Flug angemeldet", "Drohne richtig aufgeklappt", "Umfeld beachtet", "Luftraum kontrolliert"]
+            })
+            add_step(preflight_wizard, step_type="choice", title="Einsatz oder Übung?",
+                      config={"label": "Worum handelt es sich?", "options": ["Einsatz", "Übung"]},
+                      field_key=FIELD_KEY_INCIDENT_KIND)
+            add_step(preflight_wizard, step_type="text_input", title="Zweck",
+                      config={"label": "Worum geht es?", "required": True}, field_key=FIELD_KEY_PURPOSE)
+            add_step(preflight_wizard, step_type="location", title="Standort",
+                      config={"label": "Aktueller Standort"}, field_key=FIELD_KEY_START_LOCATION)
+            set_setting("rc_preflight_wizard_id", str(preflight_wizard.id))
+            click.echo("RC-Preflight-Test-Wizard angelegt und als aktiv hinterlegt.")
+        else:
+            click.echo("RC-Preflight-Test-Wizard existiert bereits.")
+
+        if Wizard.query.filter_by(organization_id=organization.id, key="rc_flight_end_test").first() is None:
+            flight_end_wizard = create_wizard(
+                organization.id, key="rc_flight_end_test", name="RC-Flugende (Test)",
+                description="Abschlussfragen nach Flugende (Konzeptdokument Abschnitt 5.5).",
+            )
+            add_step(flight_end_wizard, step_type="location", title="Standort",
+                      config={"label": "Standort bei Landung"}, field_key=FIELD_KEY_END_LOCATION)
+            add_step(flight_end_wizard, step_type="choice", title="Synchronisiert?",
+                      config={"label": "Flüge synchronisiert?", "options": ["Ja", "Nein"]},
+                      field_key=FIELD_KEY_SYNCED)
+            add_step(flight_end_wizard, step_type="choice", title="Mängel?",
+                      config={"label": "Gab es Mängel?", "options": ["Ja", "Nein"]},
+                      field_key=FIELD_KEY_HAD_ISSUES)
+            add_step(flight_end_wizard, step_type="text_input", title="Notizen",
+                      config={"label": "Notizen (optional)", "required": False}, field_key=FIELD_KEY_NOTES)
+            set_setting("rc_flight_end_wizard_id", str(flight_end_wizard.id))
+            click.echo("RC-Flugende-Test-Wizard angelegt und als aktiv hinterlegt.")
+        else:
+            click.echo("RC-Flugende-Test-Wizard existiert bereits.")
 
         click.echo("Testdaten sichergestellt.")

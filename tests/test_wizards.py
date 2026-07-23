@@ -79,6 +79,23 @@ def test_choice_requires_known_option():
     assert definition.validate(config, valid) is True
 
 
+def test_location_step_requires_both_coordinates():
+    definition = step_type_registry.get("location")
+    config = {"label": "Standort"}
+    missing_lon = definition.parse_answer(MultiDict([("lat", "50.1")]), config)
+    assert definition.validate(config, missing_lon) is False
+    complete = definition.parse_answer(MultiDict([("lat", "50.1"), ("lon", "8.5")]), config)
+    assert definition.validate(config, complete) is True
+    assert complete == {"lat": 50.1, "lon": 8.5}
+
+
+def test_location_step_rejects_non_numeric_input():
+    definition = step_type_registry.get("location")
+    config = {"label": "Standort"}
+    answer = definition.parse_answer(MultiDict([("lat", "abc"), ("lon", "8.5")]), config)
+    assert definition.validate(config, answer) is False
+
+
 def test_config_from_form_parses_lines_and_bool():
     form = MultiDict([("label", "Zweck"), ("required", "on")])
     config = config_from_form("text_input", form)
@@ -108,6 +125,17 @@ def test_add_step_appends_and_orders_by_position(app, organization):
     db.session.refresh(wizard)
     assert [s.title for s in wizard.steps] == ["A", "B"]
     assert s1.position == 0 and s2.position == 1
+
+
+def test_add_and_update_step_with_field_key(app, organization):
+    wizard = create_wizard(organization.id, key="w_fk", name="W-FK")
+    step = add_step(wizard, step_type="text_input", title="Zweck", config={"label": "", "required": True},
+                     field_key="purpose")
+    assert step.field_key == "purpose"
+
+    update_step(step, title="Zweck", config={"label": "", "required": True}, field_key="")
+    db.session.refresh(step)
+    assert step.field_key is None
 
 
 def test_move_step_swaps_with_neighbor(app, organization):

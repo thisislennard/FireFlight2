@@ -12,6 +12,7 @@ from app.core.security.permissions import ensure_permission, get_active_role, pe
 from app.core.utilities.time import parse_local_datetime
 from app.modules.incidents import services
 from app.modules.incidents.models import INCIDENT_KINDS, Flight, Incident
+from app.notifications.service import send_to_user
 
 bp = Blueprint("incidents", __name__, url_prefix="/incidents")
 
@@ -198,6 +199,35 @@ def map_view():
             "detail_url": url_for("incidents.flight_edit", incident_id=flight.incident_id, flight_id=flight.id),
         })
     return render_template("incidents/map.html", markers=markers)
+
+
+# --- Startanfragen (Phase 12, Konzeptdokument Abschnitt 5.3) -------------------------------------
+
+
+@bp.route("/freigaben")
+@login_required
+@permission_required("incidents.approve_flights")
+def pending_approvals():
+    return render_template(
+        "incidents/pending_approvals.html", flights=services.list_pending_approval_flights(current_user.organization_id)
+    )
+
+
+@bp.route("/<uuid:incident_id>/flights/<uuid:flight_id>/approve", methods=["POST"])
+@login_required
+@permission_required("incidents.approve_flights")
+def flight_approve(incident_id, flight_id):
+    flight = Flight.query.filter_by(id=flight_id, incident_id=incident_id).first_or_404()
+    services.approve_flight_start(flight, approved_by=current_user)
+    log_event("flight.approved", result="success", object_type="flight", object_id=str(flight.id))
+
+    operator = flight.pilot or flight.camera_operator
+    if operator is not None:
+        try:
+            send_to_user(operator, title="Flug freigegeben", body="Dein Flug wurde freigegeben.")
+        except ValidationError:
+            pass  # VAPID evtl. nicht konfiguriert -- die Genehmigung selbst darf trotzdem gelten
+    return redirect(url_for("incidents.pending_approvals"))
 
 
 # --- Logbuch --------------------------------------------------------------------------------------

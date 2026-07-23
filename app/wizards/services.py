@@ -48,20 +48,22 @@ def config_from_form(step_type: str, form) -> dict:
     return {field.key: config_field_value_from_form(field, form) for field in definition.config_fields}
 
 
-def add_step(wizard: Wizard, *, step_type: str, title: str, config: dict) -> WizardStep:
+def add_step(wizard: Wizard, *, step_type: str, title: str, config: dict, field_key: str | None = None) -> WizardStep:
     if step_type_registry.get(step_type) is None:
         raise ValidationError("Unbekannter Step-Typ.")
     step = WizardStep(
-        wizard_id=wizard.id, step_type=step_type, title=title, position=len(wizard.steps), config=config
+        wizard_id=wizard.id, step_type=step_type, title=title, position=len(wizard.steps), config=config,
+        field_key=field_key or None,
     )
     db.session.add(step)
     db.session.commit()
     return step
 
 
-def update_step(step: WizardStep, *, title: str, config: dict) -> WizardStep:
+def update_step(step: WizardStep, *, title: str, config: dict, field_key: str | None = None) -> WizardStep:
     step.title = title
     step.config = config
+    step.field_key = field_key or None
     db.session.commit()
     return step
 

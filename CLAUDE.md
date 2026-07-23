@@ -8,7 +8,7 @@ v1 bleibt unangetastet produktiv unter `G:\5 GitHub\FireFlight`. Volle Architekt
 **Vollständige Struktur-/Architektur-Vorgabe des Nutzers:** `docs/spec-struktur.md` (wörtliche Spezifikation vom 2026-07-19, Ausbaustufe 1). **Vollständige Design-Vorgabe:** `docs/spec-design.md` (Design-Tokens, Komponenten-CSS, Begründungen). **Konzeptvorgabe Ausbaustufe 2:** `fireflight2-konzept-struktur.md` (Fachmodule + PWA/Push, vom Nutzer 2026-07-23 geliefert) — daraus abgeleiteter Restrukturierungs-/Phasenplan wurde vom Nutzer freigegeben, liegt nicht im Repo. **Umsetzungsstand/Roadmap:** `docs/roadmap.md` — was aus welcher Ausbaustufe bereits implementiert und live verifiziert ist, was noch offen ist, was bewusst verschoben wurde. Vor jeder neuen Session zuerst dort nachsehen. Diese Datei hier fasst zusammen und verweist dorthin — bei Detailfragen zuerst dort nachsehen.
 
 ## Umsetzungsstand
-Ausbaustufe 1 aus `docs/spec-struktur.md` ist **implementiert und lokal live verifiziert** (venv + lokales PostgreSQL, da auf dieser Maschine kein Docker installiert ist): Datenmodell, Auth, Rollen/Berechtigungen, Dashboards, Modul-Registry, Administration, CLI-Init, Templates/Design. Ausbaustufe 2 (Fachmodule + PWA/Push aus `fireflight2-konzept-struktur.md`) ist **in Arbeit** — Phase 1 (Modul-Registry-Bootstrap), Phase 2 (Rollen ohne Dashboard), Phase 3 (PIN-Login-Migration, Passwort komplett ersetzt), Phase 4 (Notifications-Kern, Web-Push), Phase 5 (RC-Hardware-Feasibility-Spike, reduzierter Umfang), Phase 6 (Drohneneinheiten), Phase 7 (Nutzerprofil-Erweiterung inkl. scharf geschaltetem RC-Qualifikationsfilter), Phase 8 (generische Wizard-Engine, noch ohne echte Fachinhalte), Phase 9 (Einsatz/Übung + Flugbuch mit Karte, erstes echtes Fachmodul über das Modul-Registry-System), Phase 10 (Tickets + Wartungsintervalle, Gerätewart als erste Rolle ohne Dashboard) und Phase 11 (Teilumfang: Zwei-Schritt-RC-Login) sind umgesetzt und getestet, weitere 4 Phasen (RC-Wizard-Inhalte inkl. Zwei-Knopf-Ende-Bildschirm, Dashboard-Module, externe Integrationen, Tests/Doku) stehen aus -- plus die weiterhin ausstehende Hardware-Verifikation auf der echten DJI RC Plus. Die eigentliche Hardware-Verifikation von Phase 4/5 (echter Browser-/RC-Push-Rundlauf auf der realen DJI RC Plus) ist noch offen — nur Code + automatisierte Tests + `curl`-Rundlauf gegen den Dev-Server sind verifiziert. Die zuvor implementierte DJI-FlightHub-2-Integration wurde am 2026-07-23 auf Nutzerwunsch **komplett wieder entfernt** (kein Fachmodul/keine Integration soll den Kern ablenken, bevor dieser fertig steht) — Details im Verlauf unten. Details, offene Punkte und nächste Schritte: `docs/roadmap.md`.
+Ausbaustufe 1 aus `docs/spec-struktur.md` ist **implementiert und lokal live verifiziert** (venv + lokales PostgreSQL, da auf dieser Maschine kein Docker installiert ist): Datenmodell, Auth, Rollen/Berechtigungen, Dashboards, Modul-Registry, Administration, CLI-Init, Templates/Design. Ausbaustufe 2 (Fachmodule + PWA/Push aus `fireflight2-konzept-struktur.md`) ist **in Arbeit** — Phase 1 (Modul-Registry-Bootstrap), Phase 2 (Rollen ohne Dashboard), Phase 3 (PIN-Login-Migration, Passwort komplett ersetzt), Phase 4 (Notifications-Kern, Web-Push), Phase 5 (RC-Hardware-Feasibility-Spike, reduzierter Umfang), Phase 6 (Drohneneinheiten), Phase 7 (Nutzerprofil-Erweiterung inkl. scharf geschaltetem RC-Qualifikationsfilter), Phase 8 (generische Wizard-Engine, noch ohne echte Fachinhalte), Phase 9 (Einsatz/Übung + Flugbuch mit Karte, erstes echtes Fachmodul über das Modul-Registry-System), Phase 10 (Tickets + Wartungsintervalle, Gerätewart als erste Rolle ohne Dashboard), Phase 11 (Teilumfang: Zwei-Schritt-RC-Login) und Phase 12 (RC-Wizard-Inhalte, voller Umfang inkl. Startanfrage-Genehmigung + Push) sind umgesetzt und getestet, weitere 3 Phasen (Dashboard-Module, externe Integrationen, Tests/Doku) stehen aus -- plus die weiterhin ausstehende Hardware-Verifikation auf der echten DJI RC Plus und die offene Büro-PWA-Frage. Die eigentliche Hardware-Verifikation von Phase 4/5 (echter Browser-/RC-Push-Rundlauf auf der realen DJI RC Plus) ist noch offen — nur Code + automatisierte Tests + `curl`-Rundlauf gegen den Dev-Server sind verifiziert. Die zuvor implementierte DJI-FlightHub-2-Integration wurde am 2026-07-23 auf Nutzerwunsch **komplett wieder entfernt** (kein Fachmodul/keine Integration soll den Kern ablenken, bevor dieser fertig steht) — Details im Verlauf unten. Details, offene Punkte und nächste Schritte: `docs/roadmap.md`.
 
 ## Warum Neuentwicklung statt Weiterentwicklung von v1
 - **Technische Basis modernisieren** — weg vom frameworklosen Python-Stdlib-HTTP-Server (`http.server.ThreadingHTTPServer`) aus v1
@@ -66,6 +66,44 @@ Vollständige Liste: `FireFlight/README.md`, Abschnitt „Funktionen". Kurzfassu
 - **Passwort-Hashing** in v1: PBKDF2-HMAC-SHA256, 120.000 Iterationen, 16-Byte-Salt — als Mindeststandard falls kein Framework-Default (z. B. Flask-Bcrypt) gewählt wird
 
 ## Verlauf / Planungsentscheidungen
+### 2026-07-23 (Fortsetzung) — Phase 12: RC-Wizard-Inhalte (voller Umfang) umgesetzt
+Auf "ja mach weiter und frag" begonnen -- eine Rückfrage zur Büro-PWA-Priorität (Antwort: erst Phase
+12 laut Roadmap-Reihenfolge), danach eine zweite Rückfrage zum Umfang von Phase 12 selbst (Kernablauf
+vs. voller Umfang inkl. Startanfrage-Genehmigung + Push) -- Nutzer wählte **vollen Umfang**.
+Vollständige technische Details in `docs/roadmap.md` Abschnitt „Status: Ausbaustufe 2", das ist mit
+Abstand die umfangreichste Phase dieser Session.
+
+Kern der Phase: erster echter Verbraucher der generischen Wizard-Engine aus Phase 8 (neuer
+`location`-Step-Typ für GPS-Erfassung, neue `field_key`-Spalte auf `WizardStep` für die generische
+Zuordnung Antwort → Flugbuch-Feld, `app/rc/wizard_flow.py: collect_field_answers()`). Neuer
+Flight-Status-Workflow (draft → pending_approval → approved → completed) nur für RC-gesteuerte Flüge
+-- Desktop-Flüge aus Phase 9 bleiben unverändert (`flight_status` NULL). Neue Berechtigung
+`incidents.approve_flights` an Flugleiter/Einsatzleiter, neue Desktop-Seite `/incidents/freigaben`.
+
+**Zwei echte Funde, exakt dasselbe Muster wie bei den beiden vorherigen Phasen** (Infrastruktur, die
+nie mit einem echten Fall durchgespielt wurde): (1) Der Bedienerwechsel (`/rc/logout`, "Person
+wechseln") räumte die neuen Flug-/Wizard-Session-Schlüssel nicht auf -- der nächste Bediener
+desselben Geräts hätte den offenen Flug der vorigen Person gesehen und ggf. sogar für sie "Flug
+starten"/"Flug beenden" auslösen können. Behoben (`_OPERATOR_SESSION_KEYS`), mit Regressionstest.
+(2) Beim Entwerfen der Tests fiel auf, dass der Step-Typ `confirmation` laut Phase-8-Logik *immer*
+eine angehakte Checkbox zum Weiterkommen verlangt -- für echte Ja/Nein-Fragen ("Synchronisiert?",
+"Mängel?"), bei denen beide Antworten gültig sein müssen, war das die falsche Wahl. Vor dem
+Live-Test auf `choice` mit Optionen "Ja"/"Nein" korrigiert (Konfigurationsfehler, kein Bug in der
+Wizard-Engine selbst -- die Engine tut exakt, was ihre Step-Typ-Definition vorschreibt).
+
+**Live gegen den echten Dev-Server verifiziert**, kompletter Zyklus über zwei getrennte Sessions
+(RC-Gerät + separate Desktop-Genehmigung durch `test_flight_leader`): Preflight-Wizard → Einsatz
+neu angelegt → Flug "draft" → "Flug starten" → "pending_approval" → Desktop-Genehmigung →
+"approved", DJI-Pilot-2-Button erscheint → Flugende-Wizard → Status "completed" mit allen
+erwarteten Feldern → Zwei-Knopf-Ende-Bildschirm → "Selbe Person, neuer Flug" springt zurück zum
+Preflight. **Testmethodik-Erkenntnis unterwegs (kein Anwendungsfehler):** ein Verifikationsskript,
+das HTTP-Aufrufe gegen den echten Server und eine zusätzliche, im selben Python-Prozess erzeugte
+`create_app()`-Instanz mischte, zeigte dadurch veraltete Zwischenstände bei nachfolgenden
+HTTP-Abfragen -- mit sauber getrennten Prozessen (wie ein echter Browser + eine echte separate
+Desktop-Genehmigung) verschwand der Effekt vollständig. Testsuite 205/205 grün (25 neue Tests,
+`tests/test_rc_wizard_flow.py` neu). Migration `49286e4006a0` gegen die reale Dev-DB angewendet,
+Drift-Check zeigt nur die bekannten DJI-Alttabellen.
+
 ### 2026-07-23 (Fortsetzung) — Phase 11 (Teilumfang): Zwei-Schritt-RC-Login umgesetzt
 Auf "starte erstmal lokal" (Dev-Server gestartet, Admin-PIN auf Nutzerwunsch auf `1234` gesetzt --
 lokal bewusst trotz Denylist trivialer PINs, direkt in der DB) und danach "okay cool dann mach mal

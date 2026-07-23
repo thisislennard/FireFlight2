@@ -30,10 +30,20 @@ class IncidentsModule(FireFlightModule):
     def register_permissions(self, registry: "ModuleRegistry") -> None:
         registry.add_permission("incidents.view", "Einsätze/Flugbuch ansehen")
         registry.add_permission("incidents.edit", "Einsätze/Flüge anlegen/bearbeiten")
+        # Phase 12: Startanfragen genehmigen (Konzeptdokument Abschnitt 5.3) -- bewusst getrennt von
+        # incidents.edit, da das breit vergeben ist (jede Crew darf Flüge anlegen/bearbeiten), die
+        # Freigabe eines Flugstarts aber eine engere Führungsentscheidung ist.
+        registry.add_permission("incidents.approve_flights", "Startanfragen für Flüge genehmigen")
 
     def register_navigation(self, registry: "ModuleRegistry") -> None:
         registry.add_navigation(
             NavigationEntry(
                 label="Flugbuch", endpoint="incidents.list_incidents", icon="book-open", permission="incidents.view"
+            )
+        )
+        registry.add_navigation(
+            NavigationEntry(
+                label="Startanfragen", endpoint="incidents.pending_approvals", icon="check-circle",
+                permission="incidents.approve_flights",
             )
         )

@@ -1,0 +1,23 @@
+{% extends "rc/base.html" %}
+{% block title %}Einsatz/Übung wählen – FireFlight2 RC{% endblock %}
+{% block content %}
+<div class="auth-card">
+  <div class="card elev-md">
+    <span class="tag tag-neutral">{{ "Einsatz" if kind == "einsatz" else "Übung" }}</span>
+    <h2 style="font-size:20px;">In welche{{ "n Einsatz" if kind == "einsatz" else " Übung" }} einbuchen?</h2>
+    {% if error %}<div class="flash flash-error">{{ error }}</div>{% endif %}
+    <form method="post" style="display:flex; flex-direction:column; gap: var(--space-2);">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      {% for incident in incidents %}
+      <button type="submit" name="incident_id" value="{{ incident.id }}" class="btn btn-secondary btn-block">{{ incident.title }}</button>
+      {% endfor %}
+      <div class="hr"></div>
+      <div class="field">
+        <label>Neu anlegen</label>
+        <input class="input" type="text" name="new_title" placeholder="Titel für neue{{ 'n Einsatz' if kind == 'einsatz' else ' Übung' }}">
+      </div>
+      <button type="submit" class="btn btn-primary btn-block">Neu anlegen und einbuchen</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

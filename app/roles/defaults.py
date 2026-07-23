@@ -51,13 +51,19 @@ DEFAULT_ROLES = [
         "permissions": ["dashboard.view", "incidents.view", "incidents.edit", "tickets.view", "tickets.create"],
     },
     {
+        # Genehmigt laut Konzeptdokument Abschnitt 5.3 Startanfragen ("Flugleiter wird über Start
+        # informiert" + "Startanfrage [...] die über die Desktop-Version genehmigt werden muss").
         "key": "flight_leader", "name": "Flugleiter", "icon": "navigation", "sort_order": 40,
-        "permissions": ["dashboard.view", "incidents.view", "incidents.edit", "tickets.view", "tickets.create"],
+        "permissions": [
+            "dashboard.view", "incidents.view", "incidents.edit", "incidents.approve_flights",
+            "tickets.view", "tickets.create",
+        ],
     },
     {
         "key": "incident_commander", "name": "Einsatzleiter/SBI", "icon": "radio", "sort_order": 50,
         "permissions": [
-            "dashboard.view", "users.view", "incidents.view", "incidents.edit", "tickets.view", "tickets.create",
+            "dashboard.view", "users.view", "incidents.view", "incidents.edit", "incidents.approve_flights",
+            "tickets.view", "tickets.create",
         ],
     },
     {

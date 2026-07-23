@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}Startanfragen – Flugbuch{% endblock %}
+{% block page_title %}Startanfragen{% endblock %}
+{% block content %}
+<table class="table">
+  <thead><tr><th>Angefragt</th><th>Einsatz/Übung</th><th>Pilot</th><th>Kamera-Operator</th><th>Zweck</th><th></th></tr></thead>
+  <tbody>
+    {% for flight in flights %}
+    <tr>
+      <td>{{ to_local(flight.start_requested_at).strftime("%d.%m.%Y %H:%M") if flight.start_requested_at else "–" }}</td>
+      <td><a href="{{ url_for('incidents.incident_detail', incident_id=flight.incident_id) }}">{{ flight.incident.title }}</a></td>
+      <td>{{ flight.pilot.display_name if flight.pilot else "–" }}</td>
+      <td>{{ flight.camera_operator.display_name if flight.camera_operator else "–" }}</td>
+      <td>{{ flight.purpose or "–" }}</td>
+      <td>
+        <form method="post" action="{{ url_for('incidents.flight_approve', incident_id=flight.incident_id, flight_id=flight.id) }}">
+          <button type="submit" class="btn btn-primary">Freigeben</button>
+        </form>
+      </td>
+    </tr>
+    {% else %}
+    <tr><td colspan="6" class="text-muted">Keine offenen Startanfragen.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

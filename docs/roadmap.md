@@ -419,20 +419,93 @@ erst nach allen Fachmodulen).
   Fehlermeldung, richtige PIN führt zu `/rc/home`, "Anderer Nutzer" springt zurück zu Schritt 1.
   Testsuite 187/187 grün (kein neues DB-Modell, daher keine Migration nötig).
 
-Testsuite insgesamt: 187/187 grün (`pytest`, lokal gegen `fireflight2_test`).
+- **Phase 12 — RC-Wizard-Inhalte (voller Umfang inkl. Genehmigung + Push)**: verdrahtet die
+  generische Wizard-Engine aus Phase 8 erstmals mit einem echten Verbraucher -- Preflight-Check,
+  Flugstart mit Genehmigungspflicht, Flugende, Zwei-Knopf-Ende-Bildschirm (Konzeptdokument Abschnitt
+  5.2-5.6). Auf Nutzerentscheidung im **vollen** Umfang umgesetzt, inkl. Startanfrage-Genehmigung
+  und automatischer Push-Benachrichtigung an Flugleiter/Einsatzleiter (nicht nur der reduzierte
+  Kernablauf).
+
+  **Neuer `location`-Step-Typ** (`app/wizards/step_types.py`) für GPS-Auto-Erfassung, jetzt endlich
+  mit einem echten Verbraucher, statt wie in Phase 8 spekulativ gebaut zu werden. **Neue
+  `field_key`-Spalte auf `WizardStep`** (Migration `49286e4006a0`) bildet die Antwort eines Schritts
+  generisch auf ein Flugbuch-Feld ab (`app/modules/incidents/wizard_fields.py`: Zweck,
+  Einsatz/Übung, Start-/End-Standort, Synchronisiert?, Mängel?, Notizen) -- die Wizard-Engine selbst
+  bleibt dabei bewusst fachlich neutral, das Mapping liegt in `app/rc/wizard_flow.py:
+  collect_field_answers()`, einem reinen RC-Verbraucher. **Wichtiger Design-Fund unterwegs:** der
+  Step-Typ `confirmation` erzwingt laut Phase-8-Logik *immer* eine angehakte Checkbox zum
+  Weiterkommen -- für echte Ja/Nein-Fragen ("Synchronisiert?", "Mängel?"), bei denen beide Antworten
+  gültig sein müssen, ist stattdessen `choice` mit Optionen "Ja"/"Nein" der richtige Step-Typ
+  (`app/rc/routes.py` interpretiert die Antwort `"Ja"` als wahr).
+
+  **Flight-Status-Workflow** (`FLIGHT_STATUS_DRAFT` → `PENDING_APPROVAL` → `APPROVED` → `COMPLETED`,
+  Migration `49286e4006a0`) nur für RC-gesteuerte Flüge gesetzt -- über Desktop manuell angelegte
+  Flüge (Phase 9) lassen `flight_status` bewusst `NULL` (fertige historische Einträge ohne
+  Live-Workflow, unverändertes Verhalten). Neue Berechtigung `incidents.approve_flights` (getrennt
+  von `incidents.edit`, das breit vergeben ist) an Flugleiter und Einsatzleiter/SBI. Neue
+  Desktop-Seite `/incidents/freigaben` listet offene Startanfragen; Genehmigen löst eine
+  Push-Rückmeldung an den Piloten aus.
+
+  **RC-Ablauf** (`app/rc/routes.py`, `app/rc/wizard_flow.py`): `/rc/preflight` läuft den
+  admin-konfigurierten Preflight-Wizard (Session-Zustand `rc_preflight_state`, analog zur
+  Admin-Vorschau aus Phase 8, aber operator-spezifisch statt geteilt); danach
+  `/rc/preflight/incident` -- Konzeptdokument Abschnitt 6 ("sich in einen laufenden Einsatz/Übung
+  einbuchen"): Liste offener Einsätze/Übungen passender Art oder Neuanlage. Welche Crew-Rolle
+  (Pilot/Kamera-Operator) der Flug bekommt, richtet sich nach dem Qualifikationsfilter des Geräts
+  bzw. der eigenen Qualifikation bei einem ungefilterten Gerät -- ein Gerät bildet bewusst nur EINE
+  Rolle je Flug ab; zwei gleichzeitig genutzte Geräte für denselben physischen Flug erzeugen zwei
+  getrennte Flight-Datensätze (bekannte, akzeptierte Vereinfachung ohne echte Hardware zum Testen).
+  `/rc/flight/start` ist zugleich die Startanfrage (Push an alle Nutzer mit
+  `incidents.approve_flights`, über Rollen dedupliziert). Nach Freigabe schaltet `/rc/home` den
+  "Zu DJI Pilot 2"-Button frei. `/rc/flight-end` läuft den Flugende-Wizard, danach der
+  Zwei-Knopf-Ende-Bildschirm (`/rc/flight-end/summary`): "Selbe Person, neuer Flug" springt zurück zu
+  `/rc/preflight` (Bediener bleibt angemeldet), "Komplett neu" nutzt das bestehende `/rc/logout`.
+
+  **Zwei echte Bugs gefunden, exakt dasselbe Muster wie in Phase 9/10** (Infrastruktur, die beim
+  Bauen plausibel aussah, aber nie mit einem echten Fall durchgespielt wurde): (1) Der
+  hartkodierte "Person wechseln"-Bedienerwechsel (`/rc/logout`) räumte `rc_device_id` auf, aber nicht
+  die neuen Bediener-spezifischen Session-Schlüssel (`rc_active_flight_id`,
+  `rc_preflight_state`, `rc_flight_end_state`) -- ohne Fix hätte der nächste Bediener desselben
+  Geräts den noch offenen Flug der vorigen Person gesehen und ggf. sogar "Flug starten"/"Flug
+  beenden" für einen fremden Flug auslösen können. Jetzt über `_OPERATOR_SESSION_KEYS` beim Logout
+  konsequent geleert, mit Regressionstest abgedeckt. (2) Beim erstmaligen echten Ja/Nein-Gebrauch des
+  `choice`-Step-Typs mit `field_key` fiel auf, dass die ursprüngliche Wahl `confirmation` für
+  "Synchronisiert?"/"Mängel?" das Weiterkommen bei "Nein" verhindert hätte (s. o.) -- vor dem
+  Live-Test korrigiert.
+
+  `flask seed-test-data` legt einen echten Preflight- und Flugende-Test-Wizard mit vollständiger
+  `field_key`-Zuordnung an und hinterlegt sie automatisch als aktive SystemSettings, damit die
+  seed-Testgeräte ohne manuellen Admin-Schritt sofort nutzbar sind. Migration `49286e4006a0` gegen
+  die reale lokale Dev-DB angewendet, Drift-Check zeigt nur die bekannten DJI-Alttabellen. 25 neue
+  Tests (`tests/test_rc_wizard_flow.py` neu, plus Ergänzungen in `tests/test_wizards.py` und
+  `tests/test_incidents.py`). Testsuite 205/205 grün.
+
+  **Live gegen den echten Dev-Server verifiziert**, kompletter Zyklus: Preflight-Wizard (Checkliste,
+  Einsatz/Übung, Zweck, Standort) → Einsatz neu angelegt → Flug im Status "draft" → "Flug starten" →
+  "pending_approval" → Genehmigung durch `test_flight_leader` in einer **separaten** Desktop-Session
+  → "approved", "Zu DJI Pilot 2" wird sichtbar → Flugende-Wizard (Standort, Ja/Nein-Fragen, Notizen)
+  → Status "completed" mit allen erwarteten Feldern → Zwei-Knopf-Ende-Bildschirm → "Selbe Person,
+  neuer Flug" springt zurück zum Preflight, Bediener bleibt angemeldet. **Testmethodik-Erkenntnis
+  (kein Anwendungsfehler):** ein Verifikationsskript, das in einem einzigen Python-Prozess sowohl
+  HTTP-Aufrufe gegen den echten Dev-Server als auch eine zusätzliche, direkt im selben Prozess
+  erzeugte `create_app()`-Instanz für DB-Zugriffe mischte, zeigte dadurch veraltete Zwischenstände
+  bei nachfolgenden HTTP-Abfragen -- mit sauber getrennten Prozessen (exakt wie ein echter Browser +
+  eine echte, separate Desktop-Genehmigung) verschwand der Effekt vollständig und alle Schritte
+  liefen korrekt durch; die automatisierten Tests waren davon nie betroffen, da `pytest` durchgehend
+  eine einzige App-Instanz nutzt.
+
+Testsuite insgesamt: 205/205 grün (`pytest`, lokal gegen `fireflight2_test`).
 
 ### Als Nächstes (Reihenfolge s. Restrukturierungsplan)
-Hardware-Verifikation auf der echten DJI RC Plus (Phase 4/5 zusammen, s. o.: Push-Rundlauftest im
-normalen Browser zuerst, danach PWA-Installation über `/rc/pair` → `/rc/home` mit einem der beiden
+Hardware-Verifikation auf der echten DJI RC Plus (Phase 4/5, s. o.: Push-Rundlauftest im normalen
+Browser zuerst, danach PWA-Installation über `/rc/pair` → `/rc/home` mit einem der beiden
 `seed-test-data`-Testgeräte, Hintergrund-Push, DJI-Pilot-2-Deep-Link-URL ermitteln und in
-Administration → RC-Geräte eintragen) → Phase 12 RC-Wizard-Inhalte (verdrahtet die generische
-Wizard-Engine aus Phase 8 mit den echten Flugbuch-Modellen aus Phase 9, inkl. eines neuen
-`location`-Step-Typs für GPS+Zeit-Auto-Erfassung, der die vorhandenen `Flight.start_lat/-lon`-Felder
-befüllt, und dem Zwei-Knopf-Ende-Bildschirm aus Konzeptdokument-Abschnitt 5.6) → Phase 13 fachliche
-Dashboard-Module (u. a. ein Flugbuch-/Karten-Widget auf Basis der Phase-9-Daten und ein "Technisches
-Problem melden"-Widget auf Basis von Phase 10) → Phase 14 externe Integrationen (DWD/OpenSky) →
-Phase 15 Tests und Dokumentation. Offen und mit dem Nutzer zu klären: ob/wann eine "Büro-PWA"
-(Installierbarkeit der Desktop-Oberfläche, Konzeptdokument Abschnitt 1) nachgezogen wird -- im
+Administration → RC-Geräte eintragen, außerdem jetzt zusätzlich der komplette Preflight→Flugstart→
+Flugende-Zyklus aus Phase 12 auf echter Hardware) → Phase 13 fachliche Dashboard-Module (u. a. ein
+Flugbuch-/Karten-Widget auf Basis der Phase-9-Daten und ein "Technisches Problem melden"-Widget auf
+Basis von Phase 10) → Phase 14 externe Integrationen (DWD/OpenSky) → Phase 15 Tests und Dokumentation.
+Offen und mit dem Nutzer zu klären: ob/wann eine "Büro-PWA" (Installierbarkeit der
+Desktop-Oberfläche, Konzeptdokument Abschnitt 1) nachgezogen wird -- im
 15-Phasen-Plan bisher keiner Phase explizit zugeordnet.
 
 ---

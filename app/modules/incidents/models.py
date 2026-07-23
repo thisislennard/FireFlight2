@@ -12,6 +12,18 @@ KIND_EINSATZ = "einsatz"
 KIND_UEBUNG = "uebung"
 INCIDENT_KINDS = (KIND_EINSATZ, KIND_UEBUNG)
 
+# Nur für den RC-gesteuerten Live-Ablauf relevant (Phase 12, app/rc/wizard_flow.py) -- über Desktop
+# manuell angelegte/nachgetragene Flüge (Phase 9) lassen `flight_status` bewusst NULL, sie sind
+# fertige historische Einträge ohne Live-Workflow. draft: Preflight-Wizard abgeschlossen, Flug
+# angelegt. pending_approval: "Flug starten" gedrückt, wartet auf Freigabe (Konzeptdokument
+# Abschnitt 5.3: "Startanfrage [...] die über die Desktop-Version genehmigt werden muss"). approved:
+# freigegeben, "Zu DJI Pilot 2"-Button erscheint. completed: Flugende-Wizard abgeschlossen.
+FLIGHT_STATUS_DRAFT = "draft"
+FLIGHT_STATUS_PENDING_APPROVAL = "pending_approval"
+FLIGHT_STATUS_APPROVED = "approved"
+FLIGHT_STATUS_COMPLETED = "completed"
+FLIGHT_STATUSES = (FLIGHT_STATUS_DRAFT, FLIGHT_STATUS_PENDING_APPROVAL, FLIGHT_STATUS_APPROVED, FLIGHT_STATUS_COMPLETED)
+
 
 class Incident(UUIDPrimaryKeyMixin, TimestampMixin, db.Model):
     """Einsatz oder Übung (Konzeptdokument Abschnitt 6) -- kann mehrere Flüge umfassen. Erstes
@@ -68,9 +80,17 @@ class Flight(UUIDPrimaryKeyMixin, TimestampMixin, db.Model):
     had_issues: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     notes: Mapped[str | None] = mapped_column(String(2000))
 
+    # Startanfrage-Genehmigungsworkflow (Phase 12, Konzeptdokument Abschnitt 5.3) -- nur bei
+    # RC-gesteuerten Flügen gesetzt, s. FLIGHT_STATUSES oben.
+    flight_status: Mapped[str | None] = mapped_column(String(20))
+    start_requested_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    start_approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    start_approved_by_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"))
+
     incident = relationship("Incident", back_populates="flights")
     pilot = relationship("User", foreign_keys=[pilot_id])
     camera_operator = relationship("User", foreign_keys=[camera_operator_id])
+    start_approved_by = relationship("User", foreign_keys=[start_approved_by_id])
 
     def __repr__(self) -> str:
         return f"<Flight {self.id}>"

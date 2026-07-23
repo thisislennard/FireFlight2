@@ -18,6 +18,17 @@
     {% endif %}
   </div>
   {% endfor %}
+  <div class="field">
+    <label>Fachliche Zuordnung (Phase 12, für RC-Preflight-/Flugende-Wizards)</label>
+    <select class="input" name="field_key">
+      {% for value, label, hint in field_choices %}
+      <option value="{{ value }}" {% if step.field_key == value %}selected{% endif %}>
+        {{ label }}{% if hint %} -- {{ hint }}{% endif %}
+      </option>
+      {% endfor %}
+    </select>
+    <p class="text-muted">Nur relevant, wenn dieser Wizard als Preflight- oder Flugende-Wizard für RC-Geräte konfiguriert ist (Administration → RC-Geräte). Für andere Wizards leer lassen.</p>
+  </div>
   <div class="form-actions">
     <button type="submit" class="btn btn-primary">Speichern</button>
     <a class="btn btn-secondary" href="{{ url_for('administration.wizard_edit', wizard_id=step.wizard_id) }}">Zurück zum Wizard</a>

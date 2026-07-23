@@ -1,0 +1,13 @@
+{% extends "rc/base.html" %}
+{% block title %}Nicht konfiguriert – FireFlight2 RC{% endblock %}
+{% block content %}
+<div class="auth-card">
+  <div class="card elev-md">
+    <h2 style="font-size:20px;">{{ kind }}-Wizard nicht konfiguriert</h2>
+    <p class="card-body">
+      Ein Administrator muss unter Administration → RC-Geräte zuerst einen {{ kind }}-Wizard hinterlegen.
+    </p>
+    <a class="btn btn-secondary btn-block" href="{{ url_for('rc.home') }}">Zurück</a>
+  </div>
+</div>
+{% endblock %}

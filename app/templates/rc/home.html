@@ -5,30 +5,51 @@
   <div class="card elev-md">
     <span class="tag tag-neutral">{{ device.label }}</span>
     <h2 style="font-size:20px;">Angemeldet als {{ current_user.display_name }}</h2>
+
+    {% if flight is none %}
+    <p class="card-body">Kein laufender Flug.</p>
+    <a class="btn btn-primary btn-block" href="{{ url_for('rc.preflight') }}">Preflight starten</a>
+
+    {% elif flight.flight_status == "draft" %}
     <p class="card-body">
-      Hardware-Feasibility-Spike (Phase 5) + Zwei-Schritt-Login (Phase 11) -- echte Wizard-Inhalte
-      (Preflight/Flugstart/Flugende) und die volle Kiosk-Navigation folgen in Phase 12.
+      Preflight abgeschlossen{% if flight.purpose %} -- {{ flight.purpose }}{% endif %}.
+      Bereit zum Start.
     </p>
-    {% if not vapid_public_key %}
-    <div class="flash flash-error">Web-Push ist auf diesem Server nicht konfiguriert (VAPID-Schlüssel fehlen).</div>
-    {% else %}
-    <div class="form-actions" style="flex-direction:column; align-items:stretch;">
-      <button id="notifications-subscribe" class="btn btn-primary btn-block"
-              data-vapid-public-key="{{ vapid_public_key }}" data-sw-url="{{ url_for('rc.service_worker') }}">
-        Benachrichtigungen aktivieren
-      </button>
-      <button id="notifications-test-send" class="btn btn-secondary btn-block">Testbenachrichtigung senden</button>
-    </div>
-    <p id="notifications-status" class="text-muted"></p>
-    {% endif %}
+    <form method="post" action="{{ url_for('rc.flight_start') }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button type="submit" class="btn btn-primary btn-block">Flug starten</button>
+    </form>
+
+    {% elif flight.flight_status == "pending_approval" %}
+    <p class="card-body">Startanfrage gesendet -- wartet auf Freigabe durch den Flugleiter.</p>
+    <a class="btn btn-ghost btn-block" href="{{ url_for('rc.home') }}">Aktualisieren</a>
+
+    {% elif flight.flight_status == "approved" %}
+    <p class="card-body">Flug freigegeben.</p>
     {% if dji_pilot2_deeplink %}
-    <a class="btn btn-secondary btn-block" href="{{ dji_pilot2_deeplink }}">Zu DJI Pilot 2 wechseln</a>
+    <a class="btn btn-primary btn-block" href="{{ dji_pilot2_deeplink }}">Zu DJI Pilot 2 wechseln</a>
     {% else %}
     <p class="text-muted">
       DJI-Pilot-2-Deep-Link ist noch nicht konfiguriert (Administration → RC-Geräte). Die korrekte
       URL/App-Scheme muss auf der echten RC Plus ermittelt werden, s. docs/roadmap.md.
     </p>
     {% endif %}
+    <a class="btn btn-secondary btn-block" href="{{ url_for('rc.flight_end') }}">Flug beenden</a>
+    {% endif %}
+
+    {% if not vapid_public_key %}
+    <div class="flash flash-error">Web-Push ist auf diesem Server nicht konfiguriert (VAPID-Schlüssel fehlen).</div>
+    {% else %}
+    <div class="form-actions" style="flex-direction:column; align-items:stretch;">
+      <button id="notifications-subscribe" class="btn btn-secondary btn-block"
+              data-vapid-public-key="{{ vapid_public_key }}" data-sw-url="{{ url_for('rc.service_worker') }}">
+        Benachrichtigungen aktivieren
+      </button>
+      <button id="notifications-test-send" class="btn btn-ghost btn-block">Testbenachrichtigung senden</button>
+    </div>
+    <p id="notifications-status" class="text-muted"></p>
+    {% endif %}
+
     <form method="post" action="{{ url_for('rc.logout') }}" style="margin-top: var(--space-3);">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <button type="submit" class="btn btn-ghost">Person wechseln</button>
