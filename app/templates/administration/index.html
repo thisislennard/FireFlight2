@@ -33,5 +33,11 @@
     <span class="card-body">DJI-RC-Plus-Geräte koppeln und verwalten.</span>
   </a>
   {% endif %}
+  {% if has_permission('units.view') %}
+  <a class="role-card" href="{{ url_for('administration.units') }}">
+    <span class="card-title">Drohneneinheiten</span>
+    <span class="card-body">Einheiten anlegen und Manager zuweisen.</span>
+  </a>
+  {% endif %}
 </div>
 {% endblock %}

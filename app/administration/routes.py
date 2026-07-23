@@ -27,6 +27,17 @@ from app.rc.services import (
 )
 from app.roles.models import Permission, Role
 from app.roles.services import create_role, deactivate_role, set_role_permissions, update_role
+from app.units.models import Unit
+from app.units.services import (
+    activate_unit,
+    assign_home_unit,
+    create_unit,
+    deactivate_unit,
+    list_units,
+    set_unit_managers,
+    unit_members,
+    update_unit,
+)
 
 bp = Blueprint("administration", __name__, url_prefix="/administration")
 
@@ -72,7 +83,7 @@ def user_new():
             return redirect(url_for("administration.user_edit", user_id=new_user.id))
         except Exception as exc:  # noqa: BLE001 - Formularfehler sollen dem Nutzer angezeigt werden
             error = str(exc)
-    return render_template("administration/user_edit.html", user=None, error=error, all_roles=[])
+    return render_template("administration/user_edit.html", user=None, error=error, all_roles=[], all_units=[])
 
 
 @bp.route("/users/<uuid:user_id>", methods=["GET", "POST"])
@@ -85,6 +96,11 @@ def user_edit(user_id):
         .order_by(Role.sort_order)
         .all()
     )
+    all_units = (
+        Unit.query.filter_by(organization_id=current_user.organization_id, is_active=True)
+        .order_by(Unit.name)
+        .all()
+    )
     if request.method == "POST":
         try:
             ensure_permission(get_active_role(), "users.assign_roles")
@@ -92,11 +108,15 @@ def user_edit(user_id):
             user.email = request.form.get("email", user.email)
             role_ids = [uuid.UUID(v) for v in request.form.getlist("role_ids")]
             assign_roles(user, role_ids)
+            home_unit_id = request.form.get("home_unit_id") or None
+            assign_home_unit(user, uuid.UUID(home_unit_id) if home_unit_id else None)
             log_event("user.edit", result="success", object_type="user", object_id=str(user.id))
             return redirect(url_for("administration.users"))
         except ValidationError as exc:
             error = exc.message
-    return render_template("administration/user_edit.html", user=user, error=error, all_roles=all_roles)
+    return render_template(
+        "administration/user_edit.html", user=user, error=error, all_roles=all_roles, all_units=all_units
+    )
 
 
 @bp.route("/users/<uuid:user_id>/toggle-active", methods=["POST"])
@@ -353,3 +373,66 @@ def rc_device_toggle_active(device_id):
         activate_device(device)
         log_event("rc_device.enable", result="success", object_type="rc_device", object_id=str(device.id))
     return redirect(url_for("administration.rc_devices"))
+
+
+# --- Drohneneinheiten (app/units/) ------------------------------------------------------
+
+@bp.route("/units")
+@permission_required("units.view")
+def units():
+    return render_template(
+        "administration/units.html", units=list_units(current_user.organization_id)
+    )
+
+
+@bp.route("/units/new", methods=["GET", "POST"])
+@permission_required("units.manage")
+def unit_new():
+    error = None
+    if request.method == "POST":
+        try:
+            name = request.form["name"].strip()
+            if not name:
+                raise ValidationError("Name darf nicht leer sein.")
+            unit = create_unit(
+                current_user.organization_id, name=name, description=request.form.get("description") or None
+            )
+            log_event("unit.create", result="success", object_type="unit", object_id=str(unit.id))
+            return redirect(url_for("administration.unit_edit", unit_id=unit.id))
+        except ValidationError as exc:
+            error = exc.message
+    return render_template(
+        "administration/unit_edit.html", unit=None, error=error, all_users=[], members=[]
+    )
+
+
+@bp.route("/units/<uuid:unit_id>", methods=["GET", "POST"])
+@permission_required("units.manage")
+def unit_edit(unit_id):
+    unit = Unit.query.get_or_404(unit_id)
+    if request.method == "POST":
+        update_unit(
+            unit,
+            name=request.form.get("name", unit.name).strip() or unit.name,
+            description=request.form.get("description") or None,
+        )
+        set_unit_managers(unit, [uuid.UUID(v) for v in request.form.getlist("manager_ids")])
+        log_event("unit.edit", result="success", object_type="unit", object_id=str(unit.id))
+        return redirect(url_for("administration.units"))
+    all_users = User.query.filter_by(organization_id=current_user.organization_id).order_by(User.display_name).all()
+    return render_template(
+        "administration/unit_edit.html", unit=unit, error=None, all_users=all_users, members=unit_members(unit)
+    )
+
+
+@bp.route("/units/<uuid:unit_id>/toggle-active", methods=["POST"])
+@permission_required("units.manage")
+def unit_toggle_active(unit_id):
+    unit = Unit.query.get_or_404(unit_id)
+    if unit.is_active:
+        deactivate_unit(unit)
+        log_event("unit.disable", result="success", object_type="unit", object_id=str(unit.id))
+    else:
+        activate_unit(unit)
+        log_event("unit.enable", result="success", object_type="unit", object_id=str(unit.id))
+    return redirect(url_for("administration.units"))

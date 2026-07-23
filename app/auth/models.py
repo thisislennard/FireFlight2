@@ -34,10 +34,16 @@ class User(UUIDPrimaryKeyMixin, TimestampMixin, UserMixin, db.Model):
     last_lockout_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     requires_admin_unlock: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     last_used_role_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("roles.id"))
+    # Zugehörigkeit zu genau einer "Heimat"-Drohneneinheit (app/units/) -- Grundlage für Phase 7
+    # (Profile) und Phase 9 (Einsatz/Übung). Ein User kann zusätzlich mehrere Einheiten *managen*
+    # (managed_units), unabhängig von seiner eigenen Zugehörigkeit.
+    home_unit_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("units.id"))
 
     organization = relationship("Organization")
     roles = relationship("Role", secondary="user_roles", back_populates="users")
     last_used_role = relationship("Role", foreign_keys=[last_used_role_id])
+    home_unit = relationship("Unit", foreign_keys=[home_unit_id])
+    managed_units = relationship("Unit", secondary="unit_managers", back_populates="managers")
 
     def get_id(self) -> str:
         return str(self.id)

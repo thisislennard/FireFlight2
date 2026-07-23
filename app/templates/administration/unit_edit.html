@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}Drohneneinheit – Administration{% endblock %}
+{% block page_title %}{{ "Einheit bearbeiten" if unit else "Neue Einheit" }}{% endblock %}
+{% block content %}
+{% if error %}<div class="flash flash-error">{{ error }}</div>{% endif %}
+<form method="post" class="card elev-sm" style="max-width:560px;">
+  <div class="field"><label>Name</label><input class="input" type="text" name="name" value="{{ unit.name if unit else '' }}" required></div>
+  <div class="field"><label>Beschreibung</label><input class="input" type="text" name="description" value="{{ unit.description or '' if unit else '' }}"></div>
+  {% if unit %}
+  <div class="field">
+    <label>Manager</label>
+    <div class="checkbox-list">
+      {% for user in all_users %}
+      <label class="checkbox-row">
+        <input type="checkbox" name="manager_ids" value="{{ user.id }}" {% if user in unit.managers %}checked{% endif %}>
+        {{ user.display_name }}
+      </label>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+  <div class="form-actions">
+    <button type="submit" class="btn btn-primary">Speichern</button>
+    <a class="btn btn-secondary" href="{{ url_for('administration.units') }}">Abbrechen</a>
+  </div>
+</form>
+{% if unit %}
+<div class="card elev-sm" style="max-width:560px; margin-top: var(--space-4);">
+  <span class="card-kicker">Mitglieder</span>
+  <h2 class="card-title">Nutzer mit dieser Heimateinheit</h2>
+  <p class="card-body">Wird über die „Heimateinheit"-Auswahl im jeweiligen Benutzer-Editor gesetzt, nicht hier.</p>
+  {% if members %}
+  <ul>
+    {% for member in members %}
+    <li><a href="{{ url_for('administration.user_edit', user_id=member.id) }}">{{ member.display_name }}</a></li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="text-muted">Noch keine Mitglieder.</p>
+  {% endif %}
+</div>
+{% endif %}
+{% endblock %}

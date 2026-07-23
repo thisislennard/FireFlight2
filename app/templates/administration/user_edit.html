@@ -24,6 +24,15 @@
       {% endfor %}
     </div>
   </div>
+  <div class="field">
+    <label>Heimateinheit</label>
+    <select class="input" name="home_unit_id">
+      <option value="">Keine</option>
+      {% for unit in all_units %}
+      <option value="{{ unit.id }}" {% if user.home_unit_id == unit.id %}selected{% endif %}>{{ unit.name }}</option>
+      {% endfor %}
+    </select>
+  </div>
   {% if user.requires_admin_unlock %}
   <div class="field">
     <div class="flash flash-error">Konto ist nach mehrfacher Sperre gesperrt und benötigt eine manuelle Entsperrung.</div>

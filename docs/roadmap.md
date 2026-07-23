@@ -135,17 +135,39 @@ erst nach allen Fachmodulen).
   allgemeine Browser-Push-Rundlauftest aus Phase 4 (echte Subscription) -- beides bewusst offen
   gelassen, das ist der eigentliche Zweck dieses Hardware-Spikes.
 
-Testsuite insgesamt: 78/78 grün (`pytest`, lokal gegen `fireflight2_test`).
+- **Phase 6 — Drohneneinheiten**: neues Kern-Package `app/units/` (`Unit`-Modell, `unit_managers`-
+  m:n-Tabelle, `User.home_unit_id`, Migration `c610af27d089` -- alle drei Änderungen in einer
+  Migration, da eng gekoppelt: `users.home_unit_id` referenziert `units.id`). Ein User gehört maximal
+  einer "Heimat"-Einheit an (`home_unit_id`), kann aber unabhängig davon mehrere Einheiten *managen*
+  (`managed_units`/`unit_managers`) -- Grundlage für Phase 7 (Nutzerprofile: "welche Einheit(en) darf
+  ich managen") und Phase 9 (Einsatz/Übung). `app/units/services.py`: CRUD + `set_unit_managers()`
+  (setzt die komplette Manager-Liste, kein Einzel-Hinzufügen) + `unit_members()` (liest über
+  `User.home_unit_id`, keine eigene Zwischentabelle nötig) + `assign_home_unit()`. Admin-UI unter
+  `/administration/units` (neue Berechtigungen `units.view`/`units.manage`): Liste, Anlegen/Bearbeiten
+  mit Manager-Checkboxen (analog zum Rollen-Berechtigungs-Editor), Aktivieren/Deaktivieren; die
+  Mitgliederliste einer Einheit ist dort nur lesend (Zuordnung erfolgt über die neue
+  "Heimateinheit"-Auswahl im bestehenden Benutzer-Editor `/administration/users/<id>`, nicht
+  umgekehrt). `flask seed-test-data` um 3 Testeinheiten mit **überlappenden Managern** erweitert
+  (`test_unit_leader`/`test_tel_elw`/`test_incident_commander` verwalten jeweils mehrere Einheiten),
+  wie im Restrukturierungsplan für die Phase-6-Testdaten gefordert -- Zuordnung wird nur bei
+  Erstanlage einer Einheit gesetzt, nicht bei jedem erneuten Lauf überschrieben. 21 neue Tests in
+  `tests/test_units.py`. Migration gegen die reale lokale Dev-DB angewendet, Drift-Check zeigt nur
+  die bekannten DJI-Alttabellen. Live per `curl` verifiziert: Admin-Login → `/roles/select` (aktive
+  Rolle muss vor jeder `permission_required`-Route einmal aktiviert werden, sonst 403 -- reiner
+  Login allein reicht nicht) → `/administration/units` zeigt alle drei Testeinheiten,
+  Benutzer-Editor zeigt die neue Heimateinheit-Auswahl korrekt befüllt.
+
+Testsuite insgesamt: 88/88 grün (`pytest`, lokal gegen `fireflight2_test`).
 
 ### Als Nächstes (Reihenfolge s. Restrukturierungsplan)
 Hardware-Verifikation auf der echten DJI RC Plus (Phase 4/5 zusammen, s. o.: Push-Rundlauftest im
 normalen Browser zuerst, danach PWA-Installation über `/rc/pair` → `/rc/home` mit einem der beiden
 `seed-test-data`-Testgeräte, Hintergrund-Push, DJI-Pilot-2-Deep-Link-URL ermitteln und in
-Administration → RC-Geräte eintragen) → Phase 6 Drohneneinheiten → Phase 7 Nutzerprofil-Erweiterung
-(rüstet den Spike auf echten Qualifikationsfilter nach) → Phase 8 Wizard-Engine → Phase 9
-Einsatz/Übung + Flugbuch → Phase 10 Tickets + Wartungsintervalle → Phase 11 RC-PWA-Vollausbau →
-Phase 12 RC-Wizard-Inhalte → Phase 13 fachliche Dashboard-Module → Phase 14 externe Integrationen
-(DWD/OpenSky) → Phase 15 Tests und Dokumentation.
+Administration → RC-Geräte eintragen) → Phase 7 Nutzerprofil-Erweiterung (rüstet den RC-Spike auf
+echten Qualifikationsfilter nach, nutzt `Unit`/`unit_managers` aus Phase 6) → Phase 8 Wizard-Engine →
+Phase 9 Einsatz/Übung + Flugbuch → Phase 10 Tickets + Wartungsintervalle → Phase 11
+RC-PWA-Vollausbau → Phase 12 RC-Wizard-Inhalte → Phase 13 fachliche Dashboard-Module → Phase 14
+externe Integrationen (DWD/OpenSky) → Phase 15 Tests und Dokumentation.
 
 ---
 

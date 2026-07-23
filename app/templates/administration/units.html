@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}Drohneneinheiten – Administration{% endblock %}
+{% block page_title %}Drohneneinheiten{% endblock %}
+{% block content %}
+<div class="page-header">
+  <span></span>
+  {% if has_permission('units.manage') %}
+  <a class="btn btn-primary" href="{{ url_for('administration.unit_new') }}">Neue Einheit</a>
+  {% endif %}
+</div>
+<table class="table">
+  <thead>
+    <tr><th>Name</th><th>Beschreibung</th><th>Manager</th><th>Status</th><th></th></tr>
+  </thead>
+  <tbody>
+    {% for unit in units %}
+    <tr>
+      <td><a href="{{ url_for('administration.unit_edit', unit_id=unit.id) }}">{{ unit.name }}</a></td>
+      <td>{{ unit.description or "–" }}</td>
+      <td>{% for manager in unit.managers %}<span class="tag tag-neutral">{{ manager.display_name }}</span>{% else %}–{% endfor %}</td>
+      <td>{% if unit.is_active %}<span class="tag tag-accent">Aktiv</span>{% else %}<span class="tag tag-outline">Deaktiviert</span>{% endif %}</td>
+      <td>
+        {% if has_permission('units.manage') %}
+        <form method="post" action="{{ url_for('administration.unit_toggle_active', unit_id=unit.id) }}">
+          <button type="submit" class="btn btn-ghost">{{ "Deaktivieren" if unit.is_active else "Aktivieren" }}</button>
+        </form>
+        {% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

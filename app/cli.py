@@ -88,13 +88,18 @@ def register_cli(app: Flask) -> None:
     @app.cli.command("seed-test-data")
     def seed_test_data():
         """Idempotente Test-/Demodaten für lokale Entwicklung/QA -- ein Testuser pro Standardrolle
-        (PIN 4726) sowie zwei RC-Testgeräte, wie im Restrukturierungsplan-Abschnitt „Testuser &
-        Testdaten" für Ausbaustufe 2 gefordert. NICHT für Produktivbetrieb -- feste, bekannte PIN.
-        Wird bei jeder neuen Phase um deren Testdaten erweitert (aktuell: bis Phase 5)."""
+        (PIN 4726), zwei RC-Testgeräte und mehrere Drohneneinheiten mit überlappenden Managern, wie
+        im Restrukturierungsplan-Abschnitt „Testuser & Testdaten" für Ausbaustufe 2 gefordert. NICHT
+        für Produktivbetrieb -- feste, bekannte PIN. Wird bei jeder neuen Phase um deren Testdaten
+        erweitert (aktuell: bis Phase 6). Manager-/Heimateinheit-Zuordnung wird nur bei der
+        Erstanlage einer Einheit gesetzt, nicht bei jedem erneuten Lauf überschrieben -- ein
+        Administrator könnte sie inzwischen manuell geändert haben."""
         from app.auth.models import User
         from app.auth.services import create_user
         from app.rc.models import RcDevice
         from app.rc.services import create_device
+        from app.units.models import Unit
+        from app.units.services import assign_home_unit, create_unit, set_unit_managers
 
         organization = Organization.query.first()
         if organization is None:
@@ -136,5 +141,28 @@ def register_cli(app: Flask) -> None:
                 click.echo(f"  {device.label}: {device_key}")
         else:
             click.echo("RC-Testgeräte existieren bereits.")
+
+        def _user(username):
+            return User.query.filter_by(organization_id=organization.id, username=username).first()
+
+        # Überlappende Manager, um unit_managers und spätere "welche Einheit(en) darf ich managen"-
+        # Ansichten (Phase 7) mit mehr als einem trivialen Fall zu prüfen.
+        unit_plan = [
+            ("Einheit Nord", ["test_unit_leader", "test_incident_commander"], "test_pilot_camera"),
+            ("Einheit Süd", ["test_incident_commander", "test_tel_elw"], "test_flight_leader"),
+            ("Einheit Zentral", ["test_unit_leader", "test_tel_elw"], "test_equipment_officer"),
+        ]
+        created_units = 0
+        for name, manager_usernames, member_username in unit_plan:
+            if Unit.query.filter_by(organization_id=organization.id, name=name).first() is not None:
+                continue
+            unit = create_unit(organization.id, name=name)
+            managers = [_user(u) for u in manager_usernames if _user(u) is not None]
+            set_unit_managers(unit, [m.id for m in managers])
+            member = _user(member_username)
+            if member is not None:
+                assign_home_unit(member, unit.id)
+            created_units += 1
+        click.echo(f"{created_units} neue Drohneneinheiten angelegt (sofern noch nicht vorhanden).")
 
         click.echo("Testdaten sichergestellt.")
