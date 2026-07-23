@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}Neues RC-Gerät – Administration{% endblock %}
+{% block page_title %}Neues RC-Gerät{% endblock %}
+{% block content %}
+{% if error %}<div class="flash flash-error">{{ error }}</div>{% endif %}
+<form method="post" class="card elev-sm" style="max-width:480px;">
+  <div class="field"><label>Bezeichnung</label><input class="input" type="text" name="label" placeholder="z. B. RC Plus – Fahrzeug 1" required></div>
+  <div class="field">
+    <label>Qualifikationsfilter</label>
+    <select class="input" name="required_qualification">
+      <option value="">Kein Filter</option>
+      <option value="pilot">Pilot</option>
+      <option value="camera_operator">Kamera-Operator</option>
+    </select>
+    <p class="text-muted">Wird erst ab Phase 7 (Nutzerprofile) tatsächlich ausgewertet.</p>
+  </div>
+  <div class="form-actions">
+    <button type="submit" class="btn btn-primary">Anlegen</button>
+    <a class="btn btn-secondary" href="{{ url_for('administration.rc_devices') }}">Abbrechen</a>
+  </div>
+</form>
+{% endblock %}

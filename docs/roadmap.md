@@ -67,14 +67,85 @@ erst nach allen Fachmodulen).
   `CLAUDE.md` „Verlauf" und `docs/dji-flighthub2-api.md` erhalten, falls die Integration später
   zurückkommt.
 
-Testsuite insgesamt: 38/38 grün (`pytest`, lokal gegen `fireflight2_test`).
+- **Phase 4 — Notifications-Kern (Web-Push)**: neues Kern-Package `app/notifications/`
+  (`PushSubscription`, `NotificationLog`, Migration `ad2f3b109171`). `PushSubscription.endpoint`
+  (nicht `user_id`) ist der stabile Schlüssel — `subscribe()` upserted darauf, damit ein
+  Bedienerwechsel auf demselben Gerät (später RC) die Zeile umhängt statt zu duplizieren.
+  `app/notifications/service.py`: `subscribe`/`unsubscribe`/`send_to_user`/`send_to_users`/
+  `send_to_role`; Zustellung über `pywebpush` (neu in `requirements.txt`), bei 404/410-Antwort wird
+  die Subscription automatisch deaktiviert, bei sonstigen HTTP- oder Netzwerkfehlern (`requests`-
+  Exceptions, z. B. unerreichbarer Endpoint) bleibt sie aktiv und der Fehler landet nur im
+  `NotificationLog`. VAPID-Schlüssel als rohe base64url-Strings (`app/core/security/vapid.py`,
+  CLI `flask notifications generate-vapid-keys`) statt PEM — kompatibel sowohl mit
+  `PushManager.subscribe()` im Browser als auch direkt mit `pywebpush`. Neue Env-Variablen
+  `VAPID_PUBLIC_KEY`/`VAPID_PRIVATE_KEY`/`VAPID_CLAIMS_EMAIL` (`.env.example`, `docker-compose.yml`);
+  ohne sie läuft die App normal weiter, nur Push-Versand ist deaktiviert (`ValidationError` bei
+  Sendeversuch). Neue Route `/notifications/settings` (Topbar-Link „Benachrichtigungen") lässt jeden
+  eingeloggten Nutzer für sein aktuelles Gerät Push aktivieren/deaktivieren und eine
+  Testbenachrichtigung an sich selbst schicken — Verifikation ist laut Restrukturierungsplan bewusst
+  ein manueller Rundlauftest im echten Browser (DevTools → Application → Service Worker/Push), kein
+  automatisierbarer Test. Minimaler Service Worker `app/static/js/sw.js` (Push-/Notificationclick-
+  Handler) mit Standard-Scope `/static/js/` registriert — bewusst **kein** Root-/`/rc/`-Scope, das ist
+  Sache der echten PWA-Manifeste aus Phase 5/11. 20 neue Tests in `tests/test_notifications.py`
+  (Subscribe-Upsert, Unsubscribe-Ownership-Check, Send-Erfolg/404/410/Serverfehler/Netzwerkfehler,
+  send_to_role, Routen). Migration gegen die reale lokale Dev-DB verifiziert (`flask db upgrade` +
+  anschließender `flask db migrate`-Drift-Check zeigt nur noch die bereits bekannten,
+  DJI-Alttabellen — keine eigene Drift). Live-Rundlauftest (Subscribe/Unsubscribe-Routen) per `curl`
+  gegen den laufenden Dev-Server bestätigt; der eigentliche Push-Zustellungstest mit einer echten
+  Browser-Subscription steht noch aus (nicht automatisiert ausgeführt, s. „Als Nächstes").
+
+- **Phase 5 — RC-Hardware-Feasibility-Spike (reduzierter Umfang)**: neues Kern-Package `app/rc/`
+  (`RcDevice`-Modell, Migration `e2ceaef6caed`). Bewusste Vereinfachung gegenüber dem Plantext: der
+  Geräteschlüssel (`device_key_hash`) ist zugleich der langlebige `rc_device_token`-Cookie-Wert -- kein
+  separates, rotierbares Session-Token, um beim genannten Drei-Felder-Modell zu bleiben; bei
+  Kompromittierung hilft nur `regenerate_device_key()` (danach muss das Gerät neu gekoppelt werden).
+  Zwei getrennte Sitzungsebenen wie geplant: Geräte-Session rein über den Cookie
+  (`app/rc/routes.py: _load_device()`, iteriert aktive Geräte und vergleicht den Werkzeug-Hash -- bei
+  der kleinen Anzahl physischer RCs unproblematisch), Bediener-Session über normalen Flask-Login nach
+  PIN-Eingabe (`app.auth.services.authenticate()` wiederverwendet) zusätzlich mit
+  `session["rc_device_id"]` verknüpft. `/rc/logout` ("Person wechseln") meldet nur den Bediener ab,
+  der Geräte-Cookie bleibt unangetastet -- kein `session.clear()` wie beim Desktop-Logout. Eigener
+  `login_manager.blueprint_login_views = {"rc": "rc.login"}` (app/__init__.py) verhindert, dass
+  `@login_required` auf `/rc/`-Routen zur Desktop-Login-Seite umleitet (Flask-Login-Default wäre sonst
+  `auth.login` gewesen -- hätte den Kiosk-Kontext gesprengt). `manifest-rc.webmanifest` (Scope `/rc/`)
+  + `/rc/sw.js` (eigene Route statt `/static/js/sw-rc.js` direkt, damit der Scope aus dem Request-Pfad
+  automatisch `/rc/` wird) mit Push-/Notificationclick-Handler, inhaltlich identisch zu
+  `/static/js/sw.js`. `app/static/js/notifications.js` dafür generalisiert (`data-sw-url`-Attribut
+  statt hartkodierter Service-Worker-URL, neue `#notifications-test-send`-Wiring), `/notifications/
+  test-send` unterstützt jetzt Content Negotiation (Accept: application/json → JSON-Antwort statt
+  Redirect+Flash) speziell für den RC-Kiosk-Kontext. Admin-UI unter `/administration/rc-devices`
+  (neue Berechtigungen `rc_devices.view`/`rc_devices.manage`): Geräte anlegen (Klartext-Schlüssel wird
+  **einmalig** auf einer eigenen Seite angezeigt, nie gespeichert), Schlüssel neu vergeben,
+  aktivieren/deaktivieren, sowie ein Textfeld für die DJI-Pilot-2-Deep-Link-URL (generische
+  `SystemSetting`, Key `rc_dji_pilot2_deeplink_url`) -- **bewusst kein geratener URL-Scheme**: der
+  "Zu DJI Pilot 2 wechseln"-Button auf `/rc/home` bleibt ausgeblendet, bis der Nutzer den korrekten
+  Wert auf der echten RC Plus ermittelt hat. Qualifikationsfilter (`RcDevice.required_qualification`)
+  ist als Feld/Admin-Auswahl vorhanden, aber wie geplant noch **nicht ausgewertet** (kommt mit Phase
+  7/Profiles). Neues CLI-Kommando `flask seed-test-data` (überfällig seit Phase 1, jetzt nachgeholt):
+  ein Testuser pro Standardrolle (`test_<rollenschlüssel>`, PIN 4726) sowie die zwei laut Plan
+  geforderten `RcDevice`-Testeinträge (`required_qualification` `pilot`/`camera_operator`) --
+  idempotent, wird künftig um weitere Phasen-Testdaten ergänzt. 19 neue Tests in `tests/test_rc.py`
+  (Pairing mit richtigem/falschem Schlüssel, Geräte-Persistenz über Operator-Logout hinweg,
+  Deaktivierung erzwingt Neu-Pairing, Blueprint-Login-View-Redirect, Admin-CRUD, Berechtigungsprüfung,
+  CLI-Idempotenz) plus 1 neuer Test für die JSON-Variante von `/notifications/test-send`. Kompletter
+  Pairing→Login→Home-Rundlauf **per `curl` gegen den echten laufenden Dev-Server verifiziert**
+  (inkl. `/static/manifest-rc.webmanifest` und `/rc/sw.js`). **Nicht verifiziert (braucht die echte
+  DJI RC Plus, s. Restrukturierungsplan):** PWA-Installierbarkeit, Hintergrund-Push bei minimierter
+  App unter DJIs Energie-/Hintergrundrichtlinien, tatsächlicher App-Wechsel zu DJI Pilot 2, sowie der
+  allgemeine Browser-Push-Rundlauftest aus Phase 4 (echte Subscription) -- beides bewusst offen
+  gelassen, das ist der eigentliche Zweck dieses Hardware-Spikes.
+
+Testsuite insgesamt: 78/78 grün (`pytest`, lokal gegen `fireflight2_test`).
 
 ### Als Nächstes (Reihenfolge s. Restrukturierungsplan)
-Phase 4 Notifications-Kern → Phase 5 RC-Hardware-Feasibility-Spike (vorgezogen) → Phase 6
-Drohneneinheiten → Phase 7 Nutzerprofil-Erweiterung → Phase 8 Wizard-Engine → Phase 9 Einsatz/Übung +
-Flugbuch → Phase 10 Tickets + Wartungsintervalle → Phase 11 RC-PWA-Vollausbau → Phase 12
-RC-Wizard-Inhalte → Phase 13 fachliche Dashboard-Module → Phase 14 externe Integrationen (DWD/OpenSky)
-→ Phase 15 Tests und Dokumentation.
+Hardware-Verifikation auf der echten DJI RC Plus (Phase 4/5 zusammen, s. o.: Push-Rundlauftest im
+normalen Browser zuerst, danach PWA-Installation über `/rc/pair` → `/rc/home` mit einem der beiden
+`seed-test-data`-Testgeräte, Hintergrund-Push, DJI-Pilot-2-Deep-Link-URL ermitteln und in
+Administration → RC-Geräte eintragen) → Phase 6 Drohneneinheiten → Phase 7 Nutzerprofil-Erweiterung
+(rüstet den Spike auf echten Qualifikationsfilter nach) → Phase 8 Wizard-Engine → Phase 9
+Einsatz/Übung + Flugbuch → Phase 10 Tickets + Wartungsintervalle → Phase 11 RC-PWA-Vollausbau →
+Phase 12 RC-Wizard-Inhalte → Phase 13 fachliche Dashboard-Module → Phase 14 externe Integrationen
+(DWD/OpenSky) → Phase 15 Tests und Dokumentation.
 
 ---
 

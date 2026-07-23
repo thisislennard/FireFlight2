@@ -3,6 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="csrf-token" content="{{ csrf_token() }}">
   <title>{% block title %}FireFlight2{% endblock %}</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
 </head>
@@ -27,6 +28,7 @@
         {% if has_permission('roles.view') %}<a href="{{ url_for('administration.roles') }}" class="sidebar-link">Rollen</a>{% endif %}
         {% if has_permission('organization.view') %}<a href="{{ url_for('administration.organization') }}" class="sidebar-link">Organisation</a>{% endif %}
         {% if has_permission('audit.view') %}<a href="{{ url_for('administration.audit_log') }}" class="sidebar-link">Audit-Log</a>{% endif %}
+        {% if has_permission('rc_devices.view') %}<a href="{{ url_for('administration.rc_devices') }}" class="sidebar-link">RC-Geräte</a>{% endif %}
       </nav>
       {% endif %}
     </aside>
@@ -49,6 +51,7 @@
           {% elif active_role %}
           <span class="tag tag-neutral">{{ active_role.name }}</span>
           {% endif %}
+          <a class="btn btn-ghost" href="{{ url_for('notifications.settings') }}">Benachrichtigungen</a>
           <a class="btn btn-ghost" href="{{ url_for('auth.pin_change') }}">PIN ändern</a>
           <form method="post" action="{{ url_for('auth.logout') }}">
             <button class="btn btn-secondary" type="submit">Abmelden</button>

@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block title %}RC-Geräte – Administration{% endblock %}
+{% block page_title %}RC-Geräte{% endblock %}
+{% block content %}
+<div class="page-header">
+  <span></span>
+  {% if has_permission('rc_devices.manage') %}
+  <a class="btn btn-primary" href="{{ url_for('administration.rc_device_new') }}">Neues Gerät</a>
+  {% endif %}
+</div>
+<table class="table">
+  <thead>
+    <tr><th>Bezeichnung</th><th>Qualifikationsfilter</th><th>Status</th><th>Gekoppelt seit</th><th>Zuletzt aktiv</th><th></th></tr>
+  </thead>
+  <tbody>
+    {% for device in devices %}
+    <tr>
+      <td>{{ device.label }}</td>
+      <td>{{ device.required_qualification or "–" }}</td>
+      <td>
+        {% if not device.is_active %}<span class="tag tag-outline">Deaktiviert</span>
+        {% elif device.paired_at %}<span class="tag tag-accent">Gekoppelt</span>
+        {% else %}<span class="tag tag-neutral">Noch nicht gekoppelt</span>{% endif %}
+      </td>
+      <td>{{ device.paired_at.strftime("%d.%m.%Y %H:%M") if device.paired_at else "–" }}</td>
+      <td>{{ device.last_seen_at.strftime("%d.%m.%Y %H:%M") if device.last_seen_at else "–" }}</td>
+      <td>
+        {% if has_permission('rc_devices.manage') %}
+        <form method="post" action="{{ url_for('administration.rc_device_regenerate_key', device_id=device.id) }}" style="display:inline;">
+          <button type="submit" class="btn btn-ghost">Schlüssel neu vergeben</button>
+        </form>
+        <form method="post" action="{{ url_for('administration.rc_device_toggle_active', device_id=device.id) }}" style="display:inline;">
+          <button type="submit" class="btn btn-ghost">{{ "Deaktivieren" if device.is_active else "Aktivieren" }}</button>
+        </form>
+        {% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<div class="card elev-sm" style="max-width:520px; margin-top: var(--space-4);">
+  <span class="card-kicker">RC-Kiosk</span>
+  <h2 class="card-title">DJI-Pilot-2-Deep-Link</h2>
+  <p class="card-body">
+    URL/App-Scheme für den "Zu DJI Pilot 2 wechseln"-Button auf der RC-Startseite. Muss auf der
+    echten DJI RC Plus ermittelt werden (Restrukturierungsplan Phase 5) -- ohne Wert bleibt der
+    Button ausgeblendet.
+  </p>
+  <form method="post">
+    <div class="field">
+      <label>Deep-Link-URL</label>
+      <input class="input" type="text" name="dji_pilot2_deeplink_url" value="{{ dji_pilot2_deeplink }}"
+             placeholder="z. B. dji://open" {% if not has_permission('rc_devices.manage') %}disabled{% endif %}>
+    </div>
+    {% if has_permission('rc_devices.manage') %}
+    <button type="submit" class="btn btn-secondary">Speichern</button>
+    {% endif %}
+  </form>
+</div>
+{% endblock %}

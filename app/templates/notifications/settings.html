@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}Benachrichtigungen – FireFlight2{% endblock %}
+{% block page_title %}Benachrichtigungen{% endblock %}
+{% block content %}
+<div class="card elev-sm" style="max-width:560px;">
+  <span class="card-kicker">Web-Push</span>
+  <h2 class="card-title">Push-Benachrichtigungen für dieses Gerät</h2>
+  <p class="card-body">
+    Aktiviere Benachrichtigungen, um z. B. Startanfragen oder Wartungshinweise auch bei minimierter
+    App auf diesem Gerät zu erhalten. Die Einstellung gilt nur für diesen Browser/dieses Gerät.
+  </p>
+  {% if not vapid_public_key %}
+  <div class="flash flash-error">Web-Push ist auf diesem Server nicht konfiguriert (VAPID-Schlüssel fehlen).</div>
+  {% else %}
+  <div class="form-actions">
+    <button id="notifications-subscribe" class="btn btn-primary" data-vapid-public-key="{{ vapid_public_key }}">Benachrichtigungen aktivieren</button>
+    <button id="notifications-unsubscribe" class="btn btn-secondary">Für dieses Gerät deaktivieren</button>
+  </div>
+  <p id="notifications-status" class="text-muted"></p>
+  {% endif %}
+</div>
+
+<div class="card elev-sm" style="max-width:560px; margin-top: var(--space-3);">
+  <span class="card-kicker">Registrierte Geräte</span>
+  <h2 class="card-title">Aktive Subscriptions dieses Kontos</h2>
+  {% if subscriptions %}
+  <table class="table">
+    <thead><tr><th>Gerät</th><th>Zuletzt aktiv</th></tr></thead>
+    <tbody>
+      {% for sub in subscriptions %}
+      <tr>
+        <td>{{ sub.user_agent or "Unbekannt" }}</td>
+        <td>{{ sub.last_seen_at.strftime("%d.%m.%Y %H:%M") }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="card-body">Noch kein Gerät für Push-Benachrichtigungen registriert.</p>
+  {% endif %}
+  {% if vapid_public_key %}
+  <form method="post" action="{{ url_for('notifications.test_send') }}" class="form-actions">
+    <button type="submit" class="btn btn-secondary" {% if not subscriptions %}disabled{% endif %}>Testbenachrichtigung senden</button>
+  </form>
+  {% endif %}
+</div>
+
+<script src="{{ url_for('static', filename='js/notifications.js') }}"></script>
+{% endblock %}

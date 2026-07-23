@@ -19,3 +19,13 @@ def verify_pin(pin_hash: str, plain: str) -> bool:
 
 def is_trivial_pin(pin: str) -> bool:
     return pin in TRIVIAL_PINS
+
+
+def hash_device_key(plain: str) -> str:
+    """Für RC-Geräteschlüssel (app/rc/) -- technisch derselbe Werkzeug-Hash wie hash_pin(), eigener
+    Name nur zur Lesbarkeit am Aufrufort."""
+    return generate_password_hash(plain)
+
+
+def verify_device_key(device_key_hash: str, plain: str) -> bool:
+    return check_password_hash(device_key_hash, plain)

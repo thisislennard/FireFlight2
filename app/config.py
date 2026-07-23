@@ -23,6 +23,13 @@ class BaseConfig:
     LOGIN_MAX_FAILED_ATTEMPTS = 3
     LOGIN_LOCKOUT_STAGES_MINUTES = [15, 60]  # 1./2. Sperre; ab der 3. Sperre: requires_admin_unlock
 
+    # Web-Push (app/notifications/): Rohes base64url-kodiertes Schlüsselpaar, erzeugt per
+    # `flask notifications generate-vapid-keys` -- kein Parallelbetrieb mehrerer Formate, pywebpush
+    # akzeptiert dieses Format direkt (py_vapid.Vapid.from_string).
+    VAPID_PUBLIC_KEY = os.environ.get("VAPID_PUBLIC_KEY", "")
+    VAPID_PRIVATE_KEY = os.environ.get("VAPID_PRIVATE_KEY", "")
+    VAPID_CLAIMS_EMAIL = os.environ.get("VAPID_CLAIMS_EMAIL", "admin@example.org")
+
 
 class DevelopmentConfig(BaseConfig):
     DEBUG = True
@@ -36,6 +43,12 @@ class TestingConfig(BaseConfig):
     WTF_CSRF_ENABLED = False
     RATELIMIT_ENABLED = False
     SQLALCHEMY_DATABASE_URI = os.environ.get("TEST_DATABASE_URL", BaseConfig.SQLALCHEMY_DATABASE_URI)
+
+    # Wegwerf-Schlüsselpaar, nur damit send_to_user() in Tests nicht an der VAPID-Konfigurationsprüfung
+    # scheitert -- der tatsächliche Push-Versand wird in Tests gemockt (pywebpush.webpush), diese
+    # Schlüssel gehen nie über das Netz.
+    VAPID_PUBLIC_KEY = "BHh0biAhgoi46fceDwZfnuyTYmlT9wBySbiBmIA50aWDY35cMjftQ0Yr9rPie2aW9D6RP3Wt6kdK0lwRy5IqbGU"
+    VAPID_PRIVATE_KEY = "p1YZZZiqlcChriFCf37PDascoVVVYIHg_Wg3O1jYyio"
 
 
 class ProductionConfig(BaseConfig):

@@ -1,0 +1,37 @@
+{% extends "rc/base.html" %}
+{% block title %}FireFlight2 RC{% endblock %}
+{% block content %}
+<div class="auth-card" style="width:min(480px, 100%);">
+  <div class="card elev-md">
+    <span class="tag tag-neutral">{{ device.label }}</span>
+    <h2 style="font-size:20px;">Angemeldet als {{ current_user.display_name }}</h2>
+    <p class="card-body">
+      Reduzierter Hardware-Feasibility-Spike (Phase 5) -- Wizard-Inhalte, Qualifikationsfilter und die
+      volle Kiosk-Navigation folgen in späteren Phasen.
+    </p>
+    {% if not vapid_public_key %}
+    <div class="flash flash-error">Web-Push ist auf diesem Server nicht konfiguriert (VAPID-Schlüssel fehlen).</div>
+    {% else %}
+    <div class="form-actions" style="flex-direction:column; align-items:stretch;">
+      <button id="notifications-subscribe" class="btn btn-primary btn-block"
+              data-vapid-public-key="{{ vapid_public_key }}" data-sw-url="{{ url_for('rc.service_worker') }}">
+        Benachrichtigungen aktivieren
+      </button>
+      <button id="notifications-test-send" class="btn btn-secondary btn-block">Testbenachrichtigung senden</button>
+    </div>
+    <p id="notifications-status" class="text-muted"></p>
+    {% endif %}
+    {% if dji_pilot2_deeplink %}
+    <a class="btn btn-secondary btn-block" href="{{ dji_pilot2_deeplink }}">Zu DJI Pilot 2 wechseln</a>
+    {% else %}
+    <p class="text-muted">
+      DJI-Pilot-2-Deep-Link ist noch nicht konfiguriert (Administration → RC-Geräte). Die korrekte
+      URL/App-Scheme muss auf der echten RC Plus ermittelt werden, s. docs/roadmap.md.
+    </p>
+    {% endif %}
+    <form method="post" action="{{ url_for('rc.logout') }}" style="margin-top: var(--space-3);">
+      <button type="submit" class="btn btn-ghost">Person wechseln</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

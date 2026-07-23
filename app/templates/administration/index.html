@@ -27,5 +27,11 @@
     <span class="card-body">Protokoll wichtiger Aktionen.</span>
   </a>
   {% endif %}
+  {% if has_permission('rc_devices.view') %}
+  <a class="role-card" href="{{ url_for('administration.rc_devices') }}">
+    <span class="card-title">RC-Geräte</span>
+    <span class="card-body">DJI-RC-Plus-Geräte koppeln und verwalten.</span>
+  </a>
+  {% endif %}
 </div>
 {% endblock %}

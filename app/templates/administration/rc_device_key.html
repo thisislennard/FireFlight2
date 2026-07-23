@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}Geräteschlüssel – Administration{% endblock %}
+{% block page_title %}Geräteschlüssel für „{{ device.label }}"{% endblock %}
+{% block content %}
+<div class="card elev-sm" style="max-width:520px;">
+  <div class="flash flash-error">
+    Dieser Schlüssel wird nur jetzt angezeigt und nicht gespeichert -- notieren und sicher an die
+    Person weitergeben, die das physische Gerät koppelt (Administration → RC-Geräte → „Gerät koppeln").
+  </div>
+  <div class="field">
+    <label>Geräteschlüssel</label>
+    <input class="input" type="text" value="{{ device_key }}" readonly onclick="this.select()" style="font-family:monospace;">
+  </div>
+  <div class="form-actions">
+    <a class="btn btn-primary" href="{{ url_for('administration.rc_devices') }}">Zur Geräteliste</a>
+  </div>
+</div>
+{% endblock %}

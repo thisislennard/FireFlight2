@@ -8,7 +8,7 @@ v1 bleibt unangetastet produktiv unter `G:\5 GitHub\FireFlight`. Volle Architekt
 **Vollständige Struktur-/Architektur-Vorgabe des Nutzers:** `docs/spec-struktur.md` (wörtliche Spezifikation vom 2026-07-19, Ausbaustufe 1). **Vollständige Design-Vorgabe:** `docs/spec-design.md` (Design-Tokens, Komponenten-CSS, Begründungen). **Konzeptvorgabe Ausbaustufe 2:** `fireflight2-konzept-struktur.md` (Fachmodule + PWA/Push, vom Nutzer 2026-07-23 geliefert) — daraus abgeleiteter Restrukturierungs-/Phasenplan wurde vom Nutzer freigegeben, liegt nicht im Repo. **Umsetzungsstand/Roadmap:** `docs/roadmap.md` — was aus welcher Ausbaustufe bereits implementiert und live verifiziert ist, was noch offen ist, was bewusst verschoben wurde. Vor jeder neuen Session zuerst dort nachsehen. Diese Datei hier fasst zusammen und verweist dorthin — bei Detailfragen zuerst dort nachsehen.
 
 ## Umsetzungsstand
-Ausbaustufe 1 aus `docs/spec-struktur.md` ist **implementiert und lokal live verifiziert** (venv + lokales PostgreSQL, da auf dieser Maschine kein Docker installiert ist): Datenmodell, Auth, Rollen/Berechtigungen, Dashboards, Modul-Registry, Administration, CLI-Init, Templates/Design. Ausbaustufe 2 (Fachmodule + PWA/Push aus `fireflight2-konzept-struktur.md`) ist **in Arbeit** — Phase 1 (Modul-Registry-Bootstrap), Phase 2 (Rollen ohne Dashboard) und Phase 3 (PIN-Login-Migration, Passwort komplett ersetzt) sind umgesetzt und getestet, weitere 12 Phasen (Notifications, RC-PWA, Wizard-Engine, Missions/Logbuch, Tickets, Dashboard-Module, externe Integrationen) stehen aus. Die zuvor implementierte DJI-FlightHub-2-Integration wurde am 2026-07-23 auf Nutzerwunsch **komplett wieder entfernt** (kein Fachmodul/keine Integration soll den Kern ablenken, bevor dieser fertig steht) — Details im Verlauf unten. Details, offene Punkte und nächste Schritte: `docs/roadmap.md`.
+Ausbaustufe 1 aus `docs/spec-struktur.md` ist **implementiert und lokal live verifiziert** (venv + lokales PostgreSQL, da auf dieser Maschine kein Docker installiert ist): Datenmodell, Auth, Rollen/Berechtigungen, Dashboards, Modul-Registry, Administration, CLI-Init, Templates/Design. Ausbaustufe 2 (Fachmodule + PWA/Push aus `fireflight2-konzept-struktur.md`) ist **in Arbeit** — Phase 1 (Modul-Registry-Bootstrap), Phase 2 (Rollen ohne Dashboard), Phase 3 (PIN-Login-Migration, Passwort komplett ersetzt), Phase 4 (Notifications-Kern, Web-Push) und Phase 5 (RC-Hardware-Feasibility-Spike, reduzierter Umfang) sind umgesetzt und getestet, weitere 10 Phasen (Drohneneinheiten, Nutzerprofile, Wizard-Engine, Missions/Logbuch, Tickets, RC-PWA-Vollausbau, Dashboard-Module, externe Integrationen) stehen aus. Die eigentliche Hardware-Verifikation von Phase 4/5 (echter Browser-/RC-Push-Rundlauf auf der realen DJI RC Plus) ist noch offen — nur Code + automatisierte Tests + `curl`-Rundlauf gegen den Dev-Server sind verifiziert. Die zuvor implementierte DJI-FlightHub-2-Integration wurde am 2026-07-23 auf Nutzerwunsch **komplett wieder entfernt** (kein Fachmodul/keine Integration soll den Kern ablenken, bevor dieser fertig steht) — Details im Verlauf unten. Details, offene Punkte und nächste Schritte: `docs/roadmap.md`.
 
 ## Warum Neuentwicklung statt Weiterentwicklung von v1
 - **Technische Basis modernisieren** — weg vom frameworklosen Python-Stdlib-HTTP-Server (`http.server.ThreadingHTTPServer`) aus v1
@@ -95,3 +95,49 @@ Passwort-Login vollständig durch Username + 4-stellige PIN ersetzt (kein Parall
 Nach Abschluss von Phase 3 wurde die App lokal gestartet (venv + lokaler PostgreSQL-Dienst, `python run.py`) und der komplette PIN-Login-Flow per `curl` end-to-end gegen den echten Dev-Server verifiziert (Login → Rollenauswahl-Auto-Skip → Dashboard, 200/302 wie erwartet).
 
 Direkt danach hat der Nutzer angewiesen, die komplette DJI-FlightHub-2-Integration erstmal wieder herauszunehmen, um zunächst eine saubere Basis ohne Integrationen fertigzustellen ("möchte erstmal eine Basis schaffen"). Vollständig entfernt: `app/integrations/dji_flighthub/` (Client-Interface, Mock-/Live-Client, Sync-Service, Routen, Modelle), zugehörige Templates, `app/static/js/whep-player.js`, `tests/test_dji_integration.py`, Blueprint-Registrierung, die CSP-Lockerung für den WHEP-Call (`connect-src` wieder strikt `'self'`), `DJI_FLIGHTHUB_*`-Env-Variablen (Config/.env.example/docker-compose.yml), das `dji_integration_status`-Dashboard-Widget, alle „Integrationen"-Navigationseinträge (Sidebar, Administrationsübersicht) und die `integrations.view/configure/sync`-Berechtigungen (inkl. Entfernen aus `equipment_officer`s Standardrechten). **Bewusst nicht angetastet:** die generische `external_references`-Tabelle (nicht DJI-spezifisch, wird für spätere Module wie das Flugbuch gebraucht) und die physischen `integration_configs`/`integration_sync_runs`-Tabellen in bereits migrierten Datenbanken (dev-DB `fireflight2` hat sie noch aus der initialen Migration) — dort bleiben sie als harmlose Altlast liegen, keine Migration geschrieben, die sie droppt (auf Wunsch nachholbar). Testsuite danach 38/38 grün. Vollständige Recherche-/Implementierungs-Historie der ursprünglichen Integration bleibt oben (2026-07-22-Einträge) und in `docs/dji-flighthub2-api.md` erhalten, falls die Integration später zurückkommt.
+
+### 2026-07-23 (Fortsetzung) — Phase 4: Notifications-Kern (Web-Push) umgesetzt
+Neues Kern-Package `app/notifications/` (`PushSubscription`, `NotificationLog`, Migration
+`ad2f3b109171`) — Details in `docs/roadmap.md` Abschnitt „Status: Ausbaustufe 2". Beim
+Autogenerate-Lauf für die Migration schlug Alembic zusätzlich vor, `integration_sync_runs`,
+`external_references` und `integration_configs` zu droppen (kein Modell zeigt mehr auf sie, s.
+DJI-Entfernung oben) — bewusst nicht übernommen, Migration nur um die zwei neuen Tabellen bereinigt,
+konsistent mit der vorherigen Entscheidung, diese Tabellen als Altlast stehen zu lassen. Beim
+Implementieren zwei Bugs vor dem grünen Testlauf gefunden und behoben: (1) `subscribe()` griff nach
+`db.session.add()` auf `user.id` zu, bevor alle Felder gesetzt waren — bei einem durch vorheriges
+`commit()` expired `user`-Objekt löste der Attributzugriff selbst einen Autoflush aus und schrieb die
+Subscription-Zeile vorzeitig mit `user_id=NULL` (NOT-NULL-Verletzung); behoben durch `user.id` vor
+dem Anlegen der Zeile zu lesen. (2) `pywebpush.webpush()` wirft bei einem nicht erreichbaren Endpoint
+eine rohe `requests.exceptions.RequestException` statt `WebPushException` — ohne zusätzlichen
+Except-Zweig hätte das einen unbehandelten 500 in der aufrufenden Route erzeugt; Netzwerkfehler
+werden jetzt wie sonstige Zustellfehler geloggt, ohne die Subscription zu deaktivieren (kein
+eindeutiges "gone"-Signal). Live gegen die reale lokale Dev-DB verifiziert: Migration angewendet,
+anschließender `flask db migrate`-Lauf zeigt keine eigene Drift mehr (nur noch die bekannten
+DJI-Alttabellen). Dev-Server gestartet und Subscribe-/Unsubscribe-Routen per `curl` gegen echte
+Sessions/CSRF-Tokens bestätigt. **Nicht automatisiert verifiziert:** der eigentliche Push-Zustellversuch
+— ein `curl`-Testaufruf gegen `/notifications/test-send` hätte einen echten `pywebpush`-Request an
+die (reale, aber synthetische) Test-Endpoint-URL ausgelöst; das wurde bewusst abgebrochen, um keine
+unerwünschte Netzwerkanfrage an eine externe Domain zu senden. Der volle Rundlauftest mit einer
+echten Browser-Push-Subscription steht laut Restrukturierungsplan ohnehin als manueller Test aus
+(`docs/roadmap.md` „Als Nächstes"). Testsuite 58/58 grün.
+
+### 2026-07-23 (Fortsetzung) — Phase 5: RC-Hardware-Feasibility-Spike umgesetzt (reduzierter Umfang)
+Auf Nutzeranweisung ("mach weiter mit der roadmap") direkt im Anschluss an Phase 4 umgesetzt, ohne auf
+den (nur manuell möglichen) Browser-Push-Rundlauftest aus Phase 4 zu warten. Neues Kern-Package
+`app/rc/` (`RcDevice`, Migration `e2ceaef6caed`) — vollständige Details in `docs/roadmap.md` Abschnitt
+„Status: Ausbaustufe 2". Wichtigste bewusste Vereinfachung: der Geräteschlüssel dient zugleich als
+langlebiger Cookie-Wert (kein separates Session-Token), um exakt bei den drei im Restrukturierungsplan
+genannten `RcDevice`-Feldern zu bleiben. Ein reales Korrektheitsproblem vor dem grünen Testlauf
+gefunden: Flask-Login leitet `@login_required` standardmäßig auf den global konfigurierten
+`login_view` (`auth.login`) um — ohne Gegenmaßnahme wäre ein nicht angemeldeter Zugriff auf `/rc/home`
+zur Desktop-Login-Seite gesprungen und hätte den Kiosk-Kontext gesprengt. Behoben über
+`login_manager.blueprint_login_views = {"rc": "rc.login"}` (Flask-Login-Feature genau für
+Mehr-Bereiche-Apps wie diese). Das überfällige `flask seed-test-data`-Kommando (laut Plan schon ab
+Phase 1 gefordert, aber nie gebaut) wurde bei dieser Gelegenheit nachgeholt. Live gegen den echten
+Dev-Server per `curl` verifiziert: kompletter Pairing→Operator-Login→Home-Rundlauf mit einem echten
+`seed-test-data`-Testgerät, inkl. Manifest- und Service-Worker-Route. **Nicht verifiziert**, weil das
+echte DJI-RC-Plus-Hardware braucht (der eigentliche Zweck dieses Spikes): PWA-Installation,
+Hintergrund-Push unter DJIs Energie-/Hintergrundrichtlinien, tatsächlicher App-Wechsel zu DJI Pilot 2.
+Die DJI-Pilot-2-Deep-Link-URL wurde bewusst NICHT geraten, sondern als leere, admin-konfigurierbare
+Einstellung angelegt (Administration → RC-Geräte) — der Button auf `/rc/home` bleibt ausgeblendet, bis
+der Nutzer den korrekten Wert auf der echten Hardware ermittelt hat. Testsuite 78/78 grün.

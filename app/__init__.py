@@ -32,6 +32,10 @@ def _init_extensions(app: Flask) -> None:
     migrate.init_app(app, db)
     login_manager.init_app(app)
     login_manager.login_view = "auth.login"
+    # Der RC-Kiosk-Zugang (app/rc/) hat eine eigene Login-Seite -- ohne diese Zuordnung würde
+    # @login_required auf /rc/-Routen bei fehlender Session auf die Desktop-Login-Seite umleiten und
+    # damit aus dem Kiosk-Kontext herausfallen.
+    login_manager.blueprint_login_views = {"rc": "rc.login"}
     csrf.init_app(app)
     limiter.init_app(app)
 
@@ -48,12 +52,16 @@ def _register_blueprints(app: Flask) -> None:
     from app.administration.routes import bp as administration_bp
     from app.auth.routes import bp as auth_bp
     from app.dashboards.routes import bp as dashboards_bp
+    from app.notifications.routes import bp as notifications_bp
+    from app.rc.routes import bp as rc_bp
     from app.roles.routes import bp as roles_bp
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(roles_bp)
     app.register_blueprint(dashboards_bp)
     app.register_blueprint(administration_bp)
+    app.register_blueprint(notifications_bp)
+    app.register_blueprint(rc_bp)
 
 
 def _register_modules(app: Flask) -> None:

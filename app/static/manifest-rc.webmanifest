@@ -1,0 +1,12 @@
+{
+  "name": "FireFlight2 RC",
+  "short_name": "FF2 RC",
+  "start_url": "/rc/home",
+  "scope": "/rc/",
+  "display": "standalone",
+  "background_color": "#f3f2f2",
+  "theme_color": "#ec3013",
+  "icons": [
+    { "src": "/static/img/icon-mark.png", "sizes": "160x160", "type": "image/png", "purpose": "any" }
+  ]
+}

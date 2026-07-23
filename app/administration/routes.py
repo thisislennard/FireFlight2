@@ -11,11 +11,20 @@ from app.auth.services import assign_roles, create_user, list_users, set_user_ac
 from app.core.exceptions import ValidationError
 from app.core.security.passwords import is_trivial_pin
 from app.core.security.permissions import ensure_permission, get_active_role, permission_required, role_has_permission
+from app.core.models import get_setting, set_setting
 from app.dashboards.models import DashboardWidget
 from app.dashboards.services import add_widget, get_or_create_dashboard, remove_widget, update_widget
 from app.dashboards.widgets import widget_registry
 from app.extensions import db
 from app.organizations.models import Organization
+from app.rc.models import RcDevice
+from app.rc.services import (
+    activate_device,
+    create_device,
+    deactivate_device,
+    list_devices,
+    regenerate_device_key,
+)
 from app.roles.models import Permission, Role
 from app.roles.services import create_role, deactivate_role, set_role_permissions, update_role
 
@@ -285,3 +294,62 @@ def audit_log():
     return render_template(
         "administration/audit_log.html", pagination=pagination, action_filter=action_filter, actions=actions
     )
+
+
+# --- RC-Geräte (app/rc/) ---------------------------------------------------------------
+
+@bp.route("/rc-devices", methods=["GET", "POST"])
+@permission_required("rc_devices.view")
+def rc_devices():
+    if request.method == "POST":
+        ensure_permission(get_active_role(), "rc_devices.manage")
+        set_setting("rc_dji_pilot2_deeplink_url", request.form.get("dji_pilot2_deeplink_url", "").strip() or None)
+        log_event("rc_device.deeplink_updated", result="success")
+        return redirect(url_for("administration.rc_devices"))
+    return render_template(
+        "administration/rc_devices.html",
+        devices=list_devices(current_user.organization_id),
+        dji_pilot2_deeplink=get_setting("rc_dji_pilot2_deeplink_url") or "",
+    )
+
+
+@bp.route("/rc-devices/new", methods=["GET", "POST"])
+@permission_required("rc_devices.manage")
+def rc_device_new():
+    error = None
+    if request.method == "POST":
+        try:
+            label = request.form["label"].strip()
+            if not label:
+                raise ValidationError("Bezeichnung darf nicht leer sein.")
+            required_qualification = request.form.get("required_qualification") or None
+            device, device_key = create_device(
+                current_user.organization_id, label=label, required_qualification=required_qualification
+            )
+            log_event("rc_device.create", result="success", object_type="rc_device", object_id=str(device.id))
+            return render_template("administration/rc_device_key.html", device=device, device_key=device_key)
+        except ValidationError as exc:
+            error = exc.message
+    return render_template("administration/rc_device_edit.html", error=error)
+
+
+@bp.route("/rc-devices/<uuid:device_id>/regenerate-key", methods=["POST"])
+@permission_required("rc_devices.manage")
+def rc_device_regenerate_key(device_id):
+    device = RcDevice.query.get_or_404(device_id)
+    device_key = regenerate_device_key(device)
+    log_event("rc_device.regenerate_key", result="success", object_type="rc_device", object_id=str(device.id))
+    return render_template("administration/rc_device_key.html", device=device, device_key=device_key)
+
+
+@bp.route("/rc-devices/<uuid:device_id>/toggle-active", methods=["POST"])
+@permission_required("rc_devices.manage")
+def rc_device_toggle_active(device_id):
+    device = RcDevice.query.get_or_404(device_id)
+    if device.is_active:
+        deactivate_device(device)
+        log_event("rc_device.disable", result="success", object_type="rc_device", object_id=str(device.id))
+    else:
+        activate_device(device)
+        log_event("rc_device.enable", result="success", object_type="rc_device", object_id=str(device.id))
+    return redirect(url_for("administration.rc_devices"))

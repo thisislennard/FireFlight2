@@ -25,6 +25,8 @@ DEFAULT_PERMISSIONS = [
     ("audit.view", "Audit-Log ansehen"),
     ("settings.view", "Einstellungen ansehen"),
     ("settings.edit", "Einstellungen bearbeiten"),
+    ("rc_devices.view", "RC-Geräte ansehen"),
+    ("rc_devices.manage", "RC-Geräte anlegen/koppeln/deaktivieren"),
 ]
 
 DEFAULT_ROLES = [
