@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}Logbuch – Flugbuch{% endblock %}
+{% block page_title %}Logbuch{% endblock %}
+{% block content %}
+<form method="get" class="card elev-sm" style="max-width:420px; margin-bottom: var(--space-4);">
+  <div class="field"><label>Jahr</label><input class="input" type="number" name="year" value="{{ year or '' }}" placeholder="z. B. 2026"></div>
+  <div class="field"><label>Monat</label><input class="input" type="number" name="month" min="1" max="12" value="{{ month or '' }}" placeholder="1–12"></div>
+  <div class="form-actions">
+    <button type="submit" class="btn btn-primary">Filtern</button>
+    <a class="btn btn-secondary" href="{{ url_for('incidents.logbook') }}">Zurücksetzen</a>
+  </div>
+</form>
+
+<table class="table">
+  <thead><tr><th>Person</th><th>Einsatzflüge</th><th>Übungsflüge</th></tr></thead>
+  <tbody>
+    {% for row in rows %}
+    <tr>
+      <td>{{ row.user.display_name }}</td>
+      <td>{{ row.einsatz_count }}</td>
+      <td>{{ row.uebung_count }}</td>
+    </tr>
+    {% else %}
+    <tr><td colspan="3" class="text-muted">Keine Flüge im gewählten Zeitraum.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

@@ -103,12 +103,14 @@ def _register_error_handlers(app: Flask) -> None:
 
 
 def _register_hooks(app: Flask) -> None:
+    from app.core.utilities.time import to_local
     from app.dashboards.widgets import widget_registry
 
     # add_template_global() statt context_processor: render_widget() wird in view.html per
     # `{% from ... import render_widget %}` OHNE `with context` importiert, daher sind
     # context_processor-Werte im Makro nicht sichtbar -- echte Jinja-Globals (wie url_for) schon.
     app.add_template_global(widget_registry.get, name="widget_definition")
+    app.add_template_global(to_local, name="to_local")
 
     @app.before_request
     def _load_active_role():
@@ -123,7 +125,11 @@ def _register_hooks(app: Flask) -> None:
         response.headers.setdefault("Referrer-Policy", "same-origin")
         response.headers.setdefault(
             "Content-Security-Policy",
-            "default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; connect-src 'self'",
+            # img-src erlaubt zusätzlich den OSM-Tile-Host für die Flugbuch-Karte
+            # (app/modules/incidents/, Leaflet lokal vendored unter static/lib/leaflet/ -- nur die
+            # Kartenkacheln selbst kommen extern, kein Script/Connect-Zugriff auf Fremd-Hosts nötig).
+            "default-src 'self'; img-src 'self' data: https://tile.openstreetmap.org; "
+            "style-src 'self'; script-src 'self'; connect-src 'self'",
         )
         return response
 

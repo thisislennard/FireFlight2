@@ -98,6 +98,8 @@ def register_cli(app: Flask) -> None:
         from app.auth.services import create_user
         from app.rc.models import RcDevice
         from app.rc.services import create_device
+        from app.modules.incidents.models import Incident
+        from app.modules.incidents.services import add_flight, create_incident
         from app.units.models import Unit
         from app.units.services import assign_home_unit, create_unit, set_unit_managers
         from app.wizards.models import Wizard
@@ -197,5 +199,48 @@ def register_cli(app: Flask) -> None:
             click.echo("Beispiel-Wizard angelegt.")
         else:
             click.echo("Beispiel-Wizard existiert bereits.")
+
+        # Beispiel-Einsatz/-Übung mit zwei Flügen (Phase 9) -- deckt Logbuch-Zählung (zwei
+        # verschiedene Personen, Einsatz UND Übung) sowie die Karte (Start-/End-Standort) ab.
+        from datetime import datetime, timezone
+
+        if Incident.query.filter_by(organization_id=organization.id, title="Übung Testgelände").first() is None:
+            pilot = _user("test_pilot_camera")
+            leader = _user("test_flight_leader")
+
+            uebung = create_incident(
+                organization.id, kind="uebung", title="Übung Testgelände",
+                description="Testdaten für Logbuch und Karte.",
+            )
+            add_flight(
+                uebung,
+                pilot_id=pilot.id if pilot else None,
+                camera_operator_id=pilot.id if pilot else None,
+                drone_label="M30T FF Kelkheim",
+                purpose="Übungsflug für Testdaten",
+                started_at=datetime(2026, 6, 15, 10, 0, tzinfo=timezone.utc),
+                start_lat=50.0782, start_lon=8.4482,
+                ended_at=datetime(2026, 6, 15, 10, 30, tzinfo=timezone.utc),
+                end_lat=50.0790, end_lon=8.4490,
+                synced=True,
+            )
+
+            einsatz = create_incident(
+                organization.id, kind="einsatz", title="Einsatz Vermisstensuche (Test)",
+                description="Testdaten für Logbuch und Karte.",
+            )
+            add_flight(
+                einsatz,
+                pilot_id=leader.id if leader else None,
+                camera_operator_id=pilot.id if pilot else None,
+                drone_label="M30T FF Kelkheim",
+                purpose="Suchflug für Testdaten",
+                started_at=datetime(2026, 7, 2, 20, 0, tzinfo=timezone.utc),
+                start_lat=50.0820, start_lon=8.4400,
+                synced=False, had_issues=True, notes="Testdaten, keine echte Meldung.",
+            )
+            click.echo("Beispiel-Einsatz/-Übung mit Flügen angelegt.")
+        else:
+            click.echo("Beispiel-Einsatz/-Übung existiert bereits.")
 
         click.echo("Testdaten sichergestellt.")

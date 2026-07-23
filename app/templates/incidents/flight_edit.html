@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block title %}Flug – {{ incident.title }}{% endblock %}
+{% block page_title %}{{ "Flug bearbeiten" if flight else "Neuer Flug" }}{% endblock %}
+{% block content %}
+{% if error %}<div class="flash flash-error">{{ error }}</div>{% endif %}
+<form method="post" class="card elev-sm" style="max-width:640px;">
+  <div class="field">
+    <label>Pilot</label>
+    <select class="input" name="pilot_id">
+      <option value="">–</option>
+      {% for user in crew_choices %}
+      <option value="{{ user.id }}" {% if flight and flight.pilot_id == user.id %}selected{% endif %}>{{ user.display_name }}{% if not user.is_pilot %} (keine Pilot-Qualifikation){% endif %}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="field">
+    <label>Kamera-Operator</label>
+    <select class="input" name="camera_operator_id">
+      <option value="">–</option>
+      {% for user in crew_choices %}
+      <option value="{{ user.id }}" {% if flight and flight.camera_operator_id == user.id %}selected{% endif %}>{{ user.display_name }}{% if not user.is_camera_operator %} (keine Kamera-Qualifikation){% endif %}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="field"><label>Drohne</label><input class="input" type="text" name="drone_label" value="{{ flight.drone_label or '' if flight else '' }}" placeholder="z. B. M30T FF Kelkheim"></div>
+  <div class="field"><label>Akku</label><input class="input" type="text" name="battery_label" value="{{ flight.battery_label or '' if flight else '' }}"></div>
+  <div class="field"><label>Zweck</label><textarea class="input" name="purpose">{{ flight.purpose or "" if flight else "" }}</textarea></div>
+
+  <div class="field"><label>Startzeit</label><input class="input" type="datetime-local" name="started_at" value="{{ to_local(flight.started_at).strftime('%Y-%m-%dT%H:%M') if flight and flight.started_at else '' }}"></div>
+  <div class="field">
+    <label>Start-Standort</label>
+    <div style="display:flex; gap: var(--space-2);">
+      <input class="input" type="number" step="any" name="start_lat" placeholder="Breite" value="{{ flight.start_lat if flight and flight.start_lat is not none else '' }}">
+      <input class="input" type="number" step="any" name="start_lon" placeholder="Länge" value="{{ flight.start_lon if flight and flight.start_lon is not none else '' }}">
+      <button type="button" class="btn btn-ghost" data-geolocate-target="start">Aktuellen Standort verwenden</button>
+    </div>
+  </div>
+
+  <div class="field"><label>Endzeit</label><input class="input" type="datetime-local" name="ended_at" value="{{ to_local(flight.ended_at).strftime('%Y-%m-%dT%H:%M') if flight and flight.ended_at else '' }}"></div>
+  <div class="field">
+    <label>End-Standort</label>
+    <div style="display:flex; gap: var(--space-2);">
+      <input class="input" type="number" step="any" name="end_lat" placeholder="Breite" value="{{ flight.end_lat if flight and flight.end_lat is not none else '' }}">
+      <input class="input" type="number" step="any" name="end_lon" placeholder="Länge" value="{{ flight.end_lon if flight and flight.end_lon is not none else '' }}">
+      <button type="button" class="btn btn-ghost" data-geolocate-target="end">Aktuellen Standort verwenden</button>
+    </div>
+  </div>
+
+  <div class="field">
+    <label class="checkbox-row"><input type="checkbox" name="synced" {% if flight and flight.synced %}checked{% endif %}> Flüge synchronisiert</label>
+    <label class="checkbox-row"><input type="checkbox" name="had_issues" {% if flight and flight.had_issues %}checked{% endif %}> Es gab Mängel</label>
+  </div>
+  <div class="field"><label>Notizen</label><textarea class="input" name="notes">{{ flight.notes or "" if flight else "" }}</textarea></div>
+
+  <div class="form-actions">
+    <button type="submit" class="btn btn-primary">Speichern</button>
+    <a class="btn btn-secondary" href="{{ url_for('incidents.incident_detail', incident_id=incident.id) }}">Abbrechen</a>
+  </div>
+</form>
+{% if flight %}
+<form method="post" action="{{ url_for('incidents.flight_delete', incident_id=incident.id, flight_id=flight.id) }}" style="max-width:640px; margin-top: var(--space-2);">
+  <button type="submit" class="btn btn-ghost">Flug löschen</button>
+</form>
+{% endif %}
+<script src="{{ url_for('static', filename='js/geolocation_capture.js') }}"></script>
+{% endblock %}

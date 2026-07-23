@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}Neuer Einsatz/Übung – Flugbuch{% endblock %}
+{% block page_title %}Neuer Einsatz/Übung{% endblock %}
+{% block content %}
+{% if error %}<div class="flash flash-error">{{ error }}</div>{% endif %}
+<form method="post" class="card elev-sm" style="max-width:560px;">
+  <div class="field">
+    <label>Art</label>
+    <select class="input" name="kind">
+      {% for kind in kinds %}
+      <option value="{{ kind }}">{{ "Einsatz" if kind == "einsatz" else "Übung" }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="field"><label>Titel</label><input class="input" type="text" name="title" required></div>
+  <div class="field"><label>Beschreibung</label><textarea class="input" name="description"></textarea></div>
+  <div class="form-actions">
+    <button type="submit" class="btn btn-primary">Anlegen</button>
+    <a class="btn btn-secondary" href="{{ url_for('incidents.list_incidents') }}">Abbrechen</a>
+  </div>
+</form>
+{% endblock %}

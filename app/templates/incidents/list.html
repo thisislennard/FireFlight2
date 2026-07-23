@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title %}Flugbuch – FireFlight2{% endblock %}
+{% block page_title %}Flugbuch{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <a class="btn btn-ghost" href="{{ url_for('incidents.list_incidents', include_closed='0' if include_closed else '1') }}">
+      {{ "Nur offene anzeigen" if include_closed else "Auch abgeschlossene anzeigen" }}
+    </a>
+    <a class="btn btn-ghost" href="{{ url_for('incidents.map_view') }}">Karte</a>
+    <a class="btn btn-ghost" href="{{ url_for('incidents.logbook') }}">Logbuch</a>
+  </div>
+  {% if has_permission('incidents.edit') %}
+  <a class="btn btn-primary" href="{{ url_for('incidents.incident_new') }}">Neuer Einsatz/Übung</a>
+  {% endif %}
+</div>
+<table class="table">
+  <thead>
+    <tr><th>Titel</th><th>Art</th><th>Flüge</th><th>Status</th></tr>
+  </thead>
+  <tbody>
+    {% for incident in incidents %}
+    <tr>
+      <td><a href="{{ url_for('incidents.incident_detail', incident_id=incident.id) }}">{{ incident.title }}</a></td>
+      <td>{% if incident.kind == "einsatz" %}<span class="tag tag-accent">Einsatz</span>{% else %}<span class="tag tag-neutral">Übung</span>{% endif %}</td>
+      <td>{{ incident.flights | length }}</td>
+      <td>{% if incident.is_closed %}<span class="tag tag-outline">Abgeschlossen</span>{% else %}<span class="tag tag-accent">Offen</span>{% endif %}</td>
+    </tr>
+    {% else %}
+    <tr><td colspan="4" class="text-muted">Noch keine Einsätze/Übungen erfasst.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

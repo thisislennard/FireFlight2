@@ -258,19 +258,79 @@ erst nach allen Fachmodulen).
   reproduzierbar mit Pythons `requests`-Bibliothek oder im echten Browser) -- kein Anwendungsfehler,
   nur eine Einschränkung des `curl`-Testwerkzeugs auf dieser Maschine für nicht-ASCII-Formulardaten.
 
-Testsuite insgesamt: 139/139 grün (`pytest`, lokal gegen `fireflight2_test`).
+- **Phase 9 — Einsatz/Übung + Flugbuch**: erstes echtes Fachmodul über das Modul-Registry-System aus
+  Phase 1 (`app/modules/incidents/`) -- deckte dabei zwei latente, seit Phase 1 nie mit einem echten
+  Modul durchgespielte Bugs in `app/templates/base.html` auf: die Sidebar-Navigation aus
+  `module_navigation` rendert `entry.endpoint` als rohen `href`-Wert statt `url_for(entry.endpoint)`
+  aufzurufen, **und** filtert nicht auf die Berechtigung des Eintrags (jeder eingeloggte Nutzer hätte
+  jeden Modul-Navigationslink gesehen, unabhängig von seinen Rechten). Beides gefixt. Zwei
+  Nutzerentscheidungen vor der Umsetzung eingeholt (Rückfrage, da im Konzeptdokument Abschnitt 6/7 nur
+  knapp beschrieben und im 15-Phasen-Plan keine eigene Drohnen-/Akkuverwaltungs-Phase vorgesehen ist):
+  Drohne/Akku als Freitextfeld statt Fremdschlüssel (kein Geräte-Modul vorhanden), und Flugbuch-Felder
+  orientiert an dem, was der künftige RC-Wizard erfassen wird (Konzeptdokument Abschnitt 5.2-5.5),
+  **plus** durchgehende manuelle Pflege über Desktop und durchgängige Standort-Anzeige auf einer Karte
+  (Nutzeranforderung, ohne auf Phase 11/12 zu warten).
+
+  Neue Kern-Modelle `Incident` (Einsatz/Übung, `kind` "einsatz"/"uebung", kann mehrere Flüge umfassen)
+  und `Flight` (Pilot/Kamera-Operator als FK auf `User` -- nutzt die Qualifikationsfelder aus Phase 7
+  fürs Admin-UI-Hinweis "keine Pilot-Qualifikation" bei der Crew-Auswahl, verhindert sie aber nicht;
+  `drone_label`/`battery_label` bewusst Freitext; Start-/End-Zeit+Standort; Abschlussfragen `synced`/
+  `had_issues` aus Konzeptdokument Abschnitt 5.5). Migration `6fedb0635366`.
+
+  **Karte**: Leaflet 1.9.4 lokal vendored (`app/static/lib/leaflet/`, kein CDN, konsistent mit dem
+  Rest des Projekts) -- lädt aber die eigentlichen Kartenkacheln von `tile.openstreetmap.org` extern,
+  dafür CSP `img-src` einmalig um genau diesen Host erweitert (`app/__init__.py: _security_headers`).
+  Flug-Standorte werden serverseitig zu einfachen JSON-Objekten reduziert (keine SQLAlchemy-Objekte
+  direkt in `| tojson`) und über einen `<script type="application/json">`-Block eingebettet (kein
+  Inline-`<script>` mit Logik nötig, bleibt CSP-`script-src 'self'`-konform) -- `static/js/
+  incidents_map.js` liest sie aus und zeichnet Marker mit Popup (Einsatz/Übung, Crew, Link zum
+  Flug). `static/js/geolocation_capture.js`: "Aktuellen Standort verwenden"-Button im Flug-Formular
+  nutzt `navigator.geolocation` als Komfortfunktion -- rein progressive Verbesserung, Standort bleibt
+  auch manuell eintippbar, Formular funktioniert ohne Geolocation-Zustimmung.
+
+  Admin-/Desktop-CRUD unter `/incidents/` (neue Modul-Berechtigungen `incidents.view`/`incidents.edit`
+  über `IncidentsModule.register_permissions()`, nicht `DEFAULT_PERMISSIONS`): Einsätze/Übungen anlegen/
+  bearbeiten/abschließen/wieder öffnen, Flüge je Einsatz anlegen/bearbeiten/löschen, `/incidents/karte`
+  (alle Flüge mit Standort), `/incidents/logbuch` (`services.logbook_summary()`: pro Person Anzahl
+  Einsatz-/Übungsflüge, zählt sowohl als Pilot als auch als Kamera-Operator, filterbar nach Jahr/Monat
+  über `Flight.started_at`). `incidents.view`/`incidents.edit` default an die Rollen vergeben, deren
+  Name/Zweck fachlich naheliegt (Dokumentation, Pilot/Kamera, Flugleiter, Einsatzleiter je view+edit;
+  Einheitsführer, TEL-ELW nur view; Gerätewart unverändert ohne Zugriff) -- über den bestehenden
+  Rollen-Editor jederzeit admin-anpassbar.
+
+  **Nebenfund, echter Bug (nicht nur Testartefakt):** `app/core/utilities/time.py: to_local()` existiert
+  seit Ausbaustufe 1, wurde aber bis zu den neuen Flugbuch-Templates **nirgends tatsächlich aufgerufen**
+  -- dabei zeigte sich, dass `ZoneInfo("Europe/Berlin")` unter Windows (und vermutlich im schlanken
+  `python:3.12-slim`-Docker-Image, da Debian-Slim-Images kein System-Tzdata mitbringen) ohne das
+  `tzdata`-PyPI-Paket mit `ZoneInfoNotFoundError` fehlschlägt. `tzdata==2026.3` zu `requirements.txt`
+  ergänzt -- behebt das für `to_local()` **und** die neue Formular-Gegenrichtung
+  `parse_local_datetime()` gleichermaßen, sowohl lokal als auch im Produktions-Container.
+
+  `flask seed-test-data` legt eine Beispiel-Übung und einen Beispiel-Einsatz mit je einem Flug an
+  (unterschiedliche Personen/Zeiträume, einer mit vollständigem Start+End-Standort für die
+  Karten-Vorschau, einer nur mit Start-Standort und `had_issues=True` für Abschlussfragen-Testdaten).
+  Migration gegen die reale lokale Dev-DB verifiziert (Drift-Check zeigt nur die bekannten
+  DJI-Alttabellen, wie bei allen vorherigen Phasen bewusst nicht gedroppt). 39 neue Tests
+  (`tests/test_incidents.py`), inkl. Regressionstests für die beiden Navigation-Bugfixes. Live gegen
+  den echten Dev-Server verifiziert: Sidebar-Link erscheint/verschwindet korrekt je nach Berechtigung,
+  Einsatz+Flug manuell über Desktop angelegt, Abschließen/Wiedereröffnen, Karte lädt mit eingebetteten
+  Koordinaten und korrektem CSP-Header, Logbuch zeigt Testdaten-Personen, 403 für Rolle ohne
+  `incidents.*`. Testsuite 156/156 grün.
+
+Testsuite insgesamt: 156/156 grün (`pytest`, lokal gegen `fireflight2_test`).
 
 ### Als Nächstes (Reihenfolge s. Restrukturierungsplan)
 Hardware-Verifikation auf der echten DJI RC Plus (Phase 4/5 zusammen, s. o.: Push-Rundlauftest im
 normalen Browser zuerst, danach PWA-Installation über `/rc/pair` → `/rc/home` mit einem der beiden
 `seed-test-data`-Testgeräte, Hintergrund-Push, DJI-Pilot-2-Deep-Link-URL ermitteln und in
-Administration → RC-Geräte eintragen) → Phase 9 Einsatz/Übung + Flugbuch → Phase 10 Tickets +
-Wartungsintervalle → Phase 11 RC-PWA-Vollausbau (u. a. das im Konzeptdokument Abschnitt 5.1
-beschriebene Zwei-Schritt-Login mit Nutzerauswahl vor PIN-Eingabe, sowie der Zwei-Knopf-Ende-Bildschirm
-aus Abschnitt 5.6) → Phase 12 RC-Wizard-Inhalte (verdrahtet die generische Wizard-Engine aus Phase 8
-mit echten Preflight-/Flugstart-/Flugende-Inhalten, inkl. eines neuen `location`-Step-Typs für
-GPS+Zeit-Auto-Erfassung) → Phase 13 fachliche Dashboard-Module → Phase 14 externe Integrationen
-(DWD/OpenSky) → Phase 15 Tests und Dokumentation.
+Administration → RC-Geräte eintragen) → Phase 10 Tickets + Wartungsintervalle → Phase 11
+RC-PWA-Vollausbau (u. a. das im Konzeptdokument Abschnitt 5.1 beschriebene Zwei-Schritt-Login mit
+Nutzerauswahl vor PIN-Eingabe, sowie der Zwei-Knopf-Ende-Bildschirm aus Abschnitt 5.6) → Phase 12
+RC-Wizard-Inhalte (verdrahtet die generische Wizard-Engine aus Phase 8 mit den echten Flugbuch-Modellen
+aus Phase 9, inkl. eines neuen `location`-Step-Typs für GPS+Zeit-Auto-Erfassung, der die jetzt schon
+vorhandenen `Flight.start_lat/-lon`-Felder befüllt) → Phase 13 fachliche Dashboard-Module (u. a. ein
+Flugbuch-/Karten-Widget auf Basis der Phase-9-Daten) → Phase 14 externe Integrationen (DWD/OpenSky) →
+Phase 15 Tests und Dokumentation.
 
 ---
 

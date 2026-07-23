@@ -8,7 +8,7 @@ v1 bleibt unangetastet produktiv unter `G:\5 GitHub\FireFlight`. Volle Architekt
 **Vollständige Struktur-/Architektur-Vorgabe des Nutzers:** `docs/spec-struktur.md` (wörtliche Spezifikation vom 2026-07-19, Ausbaustufe 1). **Vollständige Design-Vorgabe:** `docs/spec-design.md` (Design-Tokens, Komponenten-CSS, Begründungen). **Konzeptvorgabe Ausbaustufe 2:** `fireflight2-konzept-struktur.md` (Fachmodule + PWA/Push, vom Nutzer 2026-07-23 geliefert) — daraus abgeleiteter Restrukturierungs-/Phasenplan wurde vom Nutzer freigegeben, liegt nicht im Repo. **Umsetzungsstand/Roadmap:** `docs/roadmap.md` — was aus welcher Ausbaustufe bereits implementiert und live verifiziert ist, was noch offen ist, was bewusst verschoben wurde. Vor jeder neuen Session zuerst dort nachsehen. Diese Datei hier fasst zusammen und verweist dorthin — bei Detailfragen zuerst dort nachsehen.
 
 ## Umsetzungsstand
-Ausbaustufe 1 aus `docs/spec-struktur.md` ist **implementiert und lokal live verifiziert** (venv + lokales PostgreSQL, da auf dieser Maschine kein Docker installiert ist): Datenmodell, Auth, Rollen/Berechtigungen, Dashboards, Modul-Registry, Administration, CLI-Init, Templates/Design. Ausbaustufe 2 (Fachmodule + PWA/Push aus `fireflight2-konzept-struktur.md`) ist **in Arbeit** — Phase 1 (Modul-Registry-Bootstrap), Phase 2 (Rollen ohne Dashboard), Phase 3 (PIN-Login-Migration, Passwort komplett ersetzt), Phase 4 (Notifications-Kern, Web-Push), Phase 5 (RC-Hardware-Feasibility-Spike, reduzierter Umfang), Phase 6 (Drohneneinheiten), Phase 7 (Nutzerprofil-Erweiterung inkl. scharf geschaltetem RC-Qualifikationsfilter) und Phase 8 (generische Wizard-Engine, noch ohne echte Fachinhalte) sind umgesetzt und getestet, weitere 7 Phasen (Missions/Logbuch, Tickets, RC-PWA-Vollausbau, RC-Wizard-Inhalte, Dashboard-Module, externe Integrationen) stehen aus. Die eigentliche Hardware-Verifikation von Phase 4/5 (echter Browser-/RC-Push-Rundlauf auf der realen DJI RC Plus) ist noch offen — nur Code + automatisierte Tests + `curl`-Rundlauf gegen den Dev-Server sind verifiziert. Die zuvor implementierte DJI-FlightHub-2-Integration wurde am 2026-07-23 auf Nutzerwunsch **komplett wieder entfernt** (kein Fachmodul/keine Integration soll den Kern ablenken, bevor dieser fertig steht) — Details im Verlauf unten. Details, offene Punkte und nächste Schritte: `docs/roadmap.md`.
+Ausbaustufe 1 aus `docs/spec-struktur.md` ist **implementiert und lokal live verifiziert** (venv + lokales PostgreSQL, da auf dieser Maschine kein Docker installiert ist): Datenmodell, Auth, Rollen/Berechtigungen, Dashboards, Modul-Registry, Administration, CLI-Init, Templates/Design. Ausbaustufe 2 (Fachmodule + PWA/Push aus `fireflight2-konzept-struktur.md`) ist **in Arbeit** — Phase 1 (Modul-Registry-Bootstrap), Phase 2 (Rollen ohne Dashboard), Phase 3 (PIN-Login-Migration, Passwort komplett ersetzt), Phase 4 (Notifications-Kern, Web-Push), Phase 5 (RC-Hardware-Feasibility-Spike, reduzierter Umfang), Phase 6 (Drohneneinheiten), Phase 7 (Nutzerprofil-Erweiterung inkl. scharf geschaltetem RC-Qualifikationsfilter), Phase 8 (generische Wizard-Engine, noch ohne echte Fachinhalte) und Phase 9 (Einsatz/Übung + Flugbuch mit Karte, erstes echtes Fachmodul über das Modul-Registry-System) sind umgesetzt und getestet, weitere 6 Phasen (Tickets/Wartung, RC-PWA-Vollausbau, RC-Wizard-Inhalte, Dashboard-Module, externe Integrationen, Tests/Doku) stehen aus. Die eigentliche Hardware-Verifikation von Phase 4/5 (echter Browser-/RC-Push-Rundlauf auf der realen DJI RC Plus) ist noch offen — nur Code + automatisierte Tests + `curl`-Rundlauf gegen den Dev-Server sind verifiziert. Die zuvor implementierte DJI-FlightHub-2-Integration wurde am 2026-07-23 auf Nutzerwunsch **komplett wieder entfernt** (kein Fachmodul/keine Integration soll den Kern ablenken, bevor dieser fertig steht) — Details im Verlauf unten. Details, offene Punkte und nächste Schritte: `docs/roadmap.md`.
 
 ## Warum Neuentwicklung statt Weiterentwicklung von v1
 - **Technische Basis modernisieren** — weg vom frameworklosen Python-Stdlib-HTTP-Server (`http.server.ThreadingHTTPServer`) aus v1
@@ -66,6 +66,40 @@ Vollständige Liste: `FireFlight/README.md`, Abschnitt „Funktionen". Kurzfassu
 - **Passwort-Hashing** in v1: PBKDF2-HMAC-SHA256, 120.000 Iterationen, 16-Byte-Salt — als Mindeststandard falls kein Framework-Default (z. B. Flask-Bcrypt) gewählt wird
 
 ## Verlauf / Planungsentscheidungen
+### 2026-07-23 (Fortsetzung) — Phase 9: Einsatz/Übung + Flugbuch (mit Karte) umgesetzt
+Auf "ja dann weiter" direkt im Anschluss an Phase 8 begonnen. Vor der Umsetzung zwei Rückfragen
+gestellt, da das Konzeptdokument (Abschnitt 6/7) Einsatz/Übung und Logbuch nur sehr knapp beschreibt
+und der 15-Phasen-Plan keine eigene Drohnen-/Akkuverwaltungs-Phase vorsieht, obwohl ein Flugbuch
+klassischerweise referenziert, welche Drohne geflogen ist: Nutzer entschied sich für Drohne/Akku als
+**Freitextfeld** (kein Geräte-Modul vorhanden, später migrierbar) und für Flugbuch-Felder, die sich an
+dem orientieren, was der künftige RC-Wizard erfassen wird (Konzeptdokument Abschnitt 5.2-5.5) — **mit
+der zusätzlichen Anforderung**, dass der Standort durchgehend auf einer Karte angezeigt wird und alles
+auch manuell über Desktop gepflegt werden kann, nicht erst über den RC-Wizard (der erst in Phase
+11/12 kommt).
+
+Vollständige technische Details in `docs/roadmap.md` Abschnitt „Status: Ausbaustufe 2". Wichtigste
+Punkte: erstes Fachmodul über das seit Phase 1 vorbereitete, aber nie real genutzte Modul-Registry-
+System (`app/modules/incidents/`) — dabei zwei latente Bugs in `app/templates/base.html` gefunden und
+behoben, die nur auffallen konnten, sobald `module_navigation` erstmals einen echten Eintrag enthielt:
+(1) die Sidebar rendert `entry.endpoint` als rohen `href`, nicht über `url_for()`; (2) der Navigation-
+Loop filterte gar nicht nach der Berechtigung des Eintrags — jeder eingeloggte Nutzer hätte jeden
+Modul-Link gesehen, unabhängig von Rechten. Karte: Leaflet 1.9.4 lokal vendored (kein CDN), CSP
+`img-src` um `tile.openstreetmap.org` erweitert (die einzige externe Abhängigkeit — Kartenkacheln
+selbst, nicht Script/Connect). **Nebenfund, echter Bug:** `to_local()` existierte seit Ausbaustufe 1,
+wurde aber bis zu diesen Templates nie tatsächlich aufgerufen — `ZoneInfo("Europe/Berlin")` schlägt
+ohne das `tzdata`-PyPI-Paket fehl (Windows hat kein System-Tzdata, vermutlich auch das schlanke
+`python:3.12-slim`-Docker-Image nicht) — `tzdata==2026.3` ergänzt, behebt es für Produktions- und
+Dev-Umgebung gleichermaßen.
+
+**Live verifiziert** gegen den echten Dev-Server: Sidebar-Link erscheint/verschwindet korrekt je nach
+`incidents.view`-Berechtigung (Regressionstest für beide Navigation-Bugfixes), Einsatz+Flug komplett
+manuell über Desktop angelegt (inkl. Standort), Abschließen/Wiedereröffnen, Karte lädt mit
+eingebetteten Koordinaten und korrektem CSP-Header, Logbuch zeigt Testdaten-Personen mit korrekten
+Einsatz-/Übungs-Zählungen, 403 für eine Rolle ohne `incidents.*`-Berechtigung bestätigt. Testsuite
+156/156 grün (39 neue Tests in `tests/test_incidents.py`). Migration `6fedb0635366` gegen die reale
+Dev-DB angewendet, Drift-Check zeigt nur die bekannten DJI-Alttabellen (wie bei allen vorherigen
+Phasen bewusst nicht gedroppt).
+
 ### 2026-07-23 (Fortsetzung) — Phase 8: Wizard-Engine (generisch) umgesetzt
 Auf "okay dann mach mal weiter" direkt im Anschluss an Phase 7 begonnen. Als Vorlage diente das
 Dashboard-Widget-System (`app/dashboards/`) — architektonisch am nächsten dran: eine Registry

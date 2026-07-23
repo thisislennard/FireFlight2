@@ -18,7 +18,9 @@
       <nav class="sidebar-nav">
         <a href="{{ url_for('dashboards.view') }}" class="sidebar-link">Dashboard</a>
         {% for entry in module_navigation %}
-        <a href="{{ entry.endpoint }}" class="sidebar-link">{{ entry.label }}</a>
+        {% if entry.permission is none or has_permission(entry.permission) %}
+        <a href="{{ url_for(entry.endpoint) }}" class="sidebar-link">{{ entry.label }}</a>
+        {% endif %}
         {% endfor %}
       </nav>
       {% if has_permission('administration.access') %}

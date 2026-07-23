@@ -8,5 +8,8 @@ auf. Neue Fachmodule werden hier eingetragen, sobald sie existieren.
 from __future__ import annotations
 
 from app.modules.base import FireFlightModule
+from app.modules.incidents.module import IncidentsModule
 
-INSTALLED_MODULES: list[FireFlightModule] = []
+INSTALLED_MODULES: list[FireFlightModule] = [
+    IncidentsModule(),
+]

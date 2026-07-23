@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block title %}Karte – Flugbuch{% endblock %}
+{% block page_title %}Karte{% endblock %}
+{% block content %}
+<link rel="stylesheet" href="{{ url_for('static', filename='lib/leaflet/leaflet.css') }}">
+{% if not markers %}
+<p class="text-muted">Noch keine Flüge mit erfasstem Standort.</p>
+{% endif %}
+<div id="incidents-map" style="height: 70vh; border: 1px solid var(--color-divider);"></div>
+<script type="application/json" id="incidents-map-data">{{ markers | tojson }}</script>
+<script src="{{ url_for('static', filename='lib/leaflet/leaflet.js') }}"></script>
+<script src="{{ url_for('static', filename='js/incidents_map.js') }}"></script>
+{% endblock %}

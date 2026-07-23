@@ -35,24 +35,27 @@ DEFAULT_PERMISSIONS = [
 
 DEFAULT_ROLES = [
     {
+        # Rollenname deutet direkt auf die Zuständigkeit fürs Flugbuch hin.
         "key": "documentation", "name": "Dokumentation", "icon": "file-text", "sort_order": 10,
-        "permissions": ["dashboard.view"],
+        "permissions": ["dashboard.view", "incidents.view", "incidents.edit"],
     },
     {
         "key": "unit_leader", "name": "Einheitsführer", "icon": "shield", "sort_order": 20,
-        "permissions": ["dashboard.view", "users.view"],
+        "permissions": ["dashboard.view", "users.view", "incidents.view"],
     },
     {
+        # Pilot/Kamera-Crew ist laut Konzeptdokument (Abschnitt 5.2-5.5) diejenige, die Flüge am
+        # RC Plus selbst erfasst -- braucht daher auch am Desktop Bearbeitungsrechte.
         "key": "pilot_camera", "name": "Pilot/Kamera", "icon": "video", "sort_order": 30,
-        "permissions": ["dashboard.view"],
+        "permissions": ["dashboard.view", "incidents.view", "incidents.edit"],
     },
     {
         "key": "flight_leader", "name": "Flugleiter", "icon": "navigation", "sort_order": 40,
-        "permissions": ["dashboard.view"],
+        "permissions": ["dashboard.view", "incidents.view", "incidents.edit"],
     },
     {
         "key": "incident_commander", "name": "Einsatzleiter/SBI", "icon": "radio", "sort_order": 50,
-        "permissions": ["dashboard.view", "users.view"],
+        "permissions": ["dashboard.view", "users.view", "incidents.view", "incidents.edit"],
     },
     {
         "key": "equipment_officer", "name": "Gerätewart", "icon": "tool", "sort_order": 60,
@@ -60,7 +63,7 @@ DEFAULT_ROLES = [
     },
     {
         "key": "tel_elw", "name": "TEL-ELW", "icon": "truck", "sort_order": 70,
-        "permissions": ["dashboard.view"],
+        "permissions": ["dashboard.view", "incidents.view"],
     },
     {
         # is_system=True -> automatisch alle Berechtigungen (app/core/security/permissions.py),
