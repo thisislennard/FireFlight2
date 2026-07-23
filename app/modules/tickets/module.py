@@ -45,3 +45,21 @@ class TicketsModule(FireFlightModule):
             NavigationEntry(label="Wartung", endpoint="tickets.list_maintenance", icon="wrench",
                              permission="maintenance.view")
         )
+
+    def register_widgets(self, registry: "ModuleRegistry") -> None:
+        from app.dashboards.widgets import WidgetDefinition
+
+        # Zweites fachliches Dashboard-Widget (Restrukturierungsplan Phase 13, Konzeptdokument
+        # Abschnitt 9: "Technisches Problem -- Ticket erstellen, inkl. Foto-Möglichkeit"). Läuft
+        # direkt im Dashboard statt über die eigene Ticket-Erstellungsseite, s. tickets.widget_report.
+        registry.add_widget(
+            WidgetDefinition(
+                key="tickets.report_form", label="Technisches Problem melden", default_config={},
+                template="modules/tickets/_widget_report_form.html",
+            )
+        )
+
+    def register_template_globals(self, app: "Flask") -> None:
+        from app.modules.tickets.widgets import report_form_widget_data
+
+        app.add_template_global(report_form_widget_data, name="tickets_report_form_widget_data")

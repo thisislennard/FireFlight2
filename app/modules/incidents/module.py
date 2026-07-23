@@ -47,3 +47,21 @@ class IncidentsModule(FireFlightModule):
                 permission="incidents.approve_flights",
             )
         )
+
+    def register_widgets(self, registry: "ModuleRegistry") -> None:
+        from app.dashboards.widgets import WidgetDefinition
+
+        # Erstes fachliches Dashboard-Widget (Restrukturierungsplan Phase 13, Konzeptdokument
+        # Abschnitt 9: "Karte -- aktuelle Standorte der Piloten"). Zeigt die neuesten Flüge mit
+        # erfasstem Standort kompakt im Dashboard, mit Link zur vollen Kartenseite (Phase 9).
+        registry.add_widget(
+            WidgetDefinition(
+                key="incidents.flight_map", label="Flugbuch-Karte", default_config={"limit": 10},
+                template="modules/incidents/_widget_flight_map.html",
+            )
+        )
+
+    def register_template_globals(self, app: "Flask") -> None:
+        from app.modules.incidents.widgets import flight_map_widget_data
+
+        app.add_template_global(flight_map_widget_data, name="incidents_flight_map_widget_data")

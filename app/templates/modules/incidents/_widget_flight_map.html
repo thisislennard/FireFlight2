@@ -1,0 +1,17 @@
+{% set data = incidents_flight_map_widget_data(widget) %}
+<div class="card-title">{{ widget.title or "Flugbuch-Karte" }}</div>
+{% if not data.allowed %}
+  <p class="card-body text-muted">Keine Berechtigung.</p>
+{% else %}
+  {% if not data.markers %}
+    <p class="card-body text-muted">Noch keine Flüge mit erfasstem Standort.</p>
+  {% else %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='lib/leaflet/leaflet.css') }}">
+    <div class="incidents-widget-map" data-map-data="incidents-widget-map-data-{{ widget.id }}"
+         style="height:260px; border:1px solid var(--color-divider);"></div>
+    <script type="application/json" id="incidents-widget-map-data-{{ widget.id }}">{{ data.markers | tojson }}</script>
+    <script src="{{ url_for('static', filename='lib/leaflet/leaflet.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/incidents_widget_map.js') }}"></script>
+  {% endif %}
+  <a class="btn btn-ghost" style="margin-top:var(--space-2);" href="{{ url_for('incidents.map_view') }}">Vollständige Karte</a>
+{% endif %}

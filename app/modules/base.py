@@ -40,3 +40,10 @@ class FireFlightModule:
 
     def register_navigation(self, registry: "ModuleRegistry") -> None:
         return None
+
+    def register_template_globals(self, app: "Flask") -> None:
+        """Andockpunkt für Jinja-Globals, die eigene Widget-Templates brauchen (Phase 13) --
+        context_processor-Werte wie `current_user`/`has_permission` sind im `render_widget`-Makro
+        NICHT sichtbar (s. app/__init__.py: _register_hooks), daher holen sich Fachmodul-Widgets ihre
+        Daten über hier registrierte echte Jinja-Globals statt über den Request-Kontext."""
+        return None

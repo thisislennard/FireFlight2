@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from flask import Blueprint, abort, redirect, render_template, request, send_file, url_for
+from flask import Blueprint, abort, flash, redirect, render_template, request, send_file, url_for
 from flask_login import current_user, login_required
 
 from app.audit.service import log_event
@@ -50,6 +50,32 @@ def ticket_new():
         except ValidationError as exc:
             error = exc.message
     return render_template("tickets/ticket_edit.html", error=error)
+
+
+@bp.route("/melden", methods=["POST"])
+@login_required
+@permission_required("tickets.create")
+def widget_report():
+    """Ziel des Dashboard-Widgets "Technisches Problem melden" (Phase 13, Konzeptdokument
+    Abschnitt 9: "Ticket erstellen, inkl. Foto-Möglichkeit") -- anders als `ticket_new` (eigene
+    Seite, Weiterleitung auf die Detailseite) läuft das Widget direkt im Dashboard und erstellt
+    Ticket + optionales Foto in einem Aufwasch, Rückmeldung per Flash statt Detailseite."""
+    try:
+        ticket = services.create_ticket(
+            current_user.organization_id,
+            title=request.form.get("title", ""),
+            description=request.form.get("description") or None,
+            drone_label=request.form.get("drone_label") or None,
+            created_by=current_user,
+        )
+        photo = request.files.get("photo")
+        if photo and photo.filename:
+            services.add_attachment(ticket, file=photo, uploaded_by=current_user)
+        log_event("ticket.create", result="success", object_type="ticket", object_id=str(ticket.id))
+        flash("Meldung erstellt.", "success")
+    except ValidationError as exc:
+        flash(exc.message, "error")
+    return redirect(url_for("dashboards.view"))
 
 
 @bp.route("/<uuid:ticket_id>")

@@ -182,22 +182,7 @@ def flight_delete(incident_id, flight_id):
 @permission_required("incidents.view")
 def map_view():
     flights = services.list_flights_with_location(current_user.organization_id)
-    # Nur einfache, JSON-serialisierbare Werte -- {{ ... | tojson }} kann keine SQLAlchemy-Objekte
-    # direkt serialisieren.
-    markers = []
-    for flight in flights:
-        markers.append({
-            "incident_title": flight.incident.title,
-            "kind": flight.incident.kind,
-            "pilot": flight.pilot.display_name if flight.pilot else None,
-            "camera_operator": flight.camera_operator.display_name if flight.camera_operator else None,
-            "started_at": flight.started_at.isoformat() if flight.started_at else None,
-            "start": {"lat": flight.start_lat, "lon": flight.start_lon}
-            if flight.start_lat is not None and flight.start_lon is not None else None,
-            "end": {"lat": flight.end_lat, "lon": flight.end_lon}
-            if flight.end_lat is not None and flight.end_lon is not None else None,
-            "detail_url": url_for("incidents.flight_edit", incident_id=flight.incident_id, flight_id=flight.id),
-        })
+    markers = [services.serialize_flight_marker(flight) for flight in flights]
     return render_template("incidents/map.html", markers=markers)
 
 

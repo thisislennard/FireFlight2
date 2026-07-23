@@ -79,6 +79,21 @@ def test_list_flights_with_location_filters_correctly(app, organization):
     assert [f.id for f in results] == [with_loc.id]
 
 
+def test_list_flights_with_location_limit_returns_most_recent(app, organization):
+    incident = create_incident(organization.id, kind="uebung", title="Test")
+    older = add_flight(
+        incident, purpose="alt", start_lat=50.0, start_lon=8.0,
+        started_at=datetime(2026, 1, 1, tzinfo=timezone.utc),
+    )
+    newer = add_flight(
+        incident, purpose="neu", start_lat=50.1, start_lon=8.1,
+        started_at=datetime(2026, 6, 1, tzinfo=timezone.utc),
+    )
+    results = list_flights_with_location(organization.id, limit=1)
+    assert [f.id for f in results] == [newer.id]
+    assert older.id not in [f.id for f in results]
+
+
 def test_logbook_summary_counts_per_person_and_kind(app, organization, roles):
     from app.auth.services import create_user
 

@@ -1,0 +1,26 @@
+{% set data = tickets_report_form_widget_data(widget) %}
+<div class="card-title">{{ widget.title or "Technisches Problem melden" }}</div>
+{% if not data.allowed %}
+  <p class="card-body text-muted">Keine Berechtigung.</p>
+{% else %}
+  <form method="post" action="{{ url_for('tickets.widget_report') }}" enctype="multipart/form-data"
+        hx-encoding="multipart/form-data">
+    <div class="field">
+      <label>Titel</label>
+      <input class="input" type="text" name="title" required>
+    </div>
+    <div class="field">
+      <label>Beschreibung</label>
+      <textarea class="input" name="description" rows="2"></textarea>
+    </div>
+    <div class="field">
+      <label>Drohne</label>
+      <input class="input" type="text" name="drone_label" placeholder="z. B. M30T FF Kelkheim">
+    </div>
+    <div class="field">
+      <label>Foto (optional, PNG/JPEG/WebP)</label>
+      <input class="input" type="file" name="photo" accept="image/png,image/jpeg,image/webp">
+    </div>
+    <button type="submit" class="btn btn-primary">Melden</button>
+  </form>
+{% endif %}

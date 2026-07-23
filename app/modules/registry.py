@@ -30,6 +30,7 @@ class ModuleRegistry:
         module.register_permissions(self)
         module.register_widgets(self)
         module.register_navigation(self)
+        module.register_template_globals(app)
 
     def reset(self) -> None:
         # module_registry ist ein Prozess-weites Singleton, waehrend create_app() (z. B. in Tests)

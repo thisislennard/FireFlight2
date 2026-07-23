@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import uuid
 
+from flask import url_for
 from sqlalchemy import extract
 
 from app.auth.models import User
@@ -76,18 +77,42 @@ def delete_flight(flight: Flight) -> None:
     db.session.commit()
 
 
-def list_flights_with_location(organization_id: uuid.UUID) -> list[Flight]:
+def list_flights_with_location(organization_id: uuid.UUID, *, limit: int | None = None) -> list[Flight]:
     """Für die Kartenansicht -- alle Flüge mit mindestens einem gesetzten Standort (Start oder
-    Ende)."""
-    return (
+    Ende). `limit` (neueste zuerst) ist für das kompakte Dashboard-Widget (Phase 13) gedacht -- die
+    volle Kartenseite ruft ohne Limit auf, dort bestimmen alle Punkte gemeinsam den Kartenausschnitt,
+    Reihenfolge ist dort irrelevant."""
+    query = (
         Flight.query.join(Incident)
         .filter(Incident.organization_id == organization_id)
         .filter(
             ((Flight.start_lat.isnot(None)) & (Flight.start_lon.isnot(None)))
             | ((Flight.end_lat.isnot(None)) & (Flight.end_lon.isnot(None)))
         )
-        .all()
+        .order_by(Flight.started_at.desc())
     )
+    if limit is not None:
+        query = query.limit(limit)
+    return query.all()
+
+
+def serialize_flight_marker(flight: Flight) -> dict:
+    """Gemeinsame JSON-Serialisierung für Kartenmarker -- genutzt von der vollen Kartenseite
+    (`incidents.map_view`) und dem Flugbuch-/Karten-Widget (Phase 13), damit beide dieselben Felder
+    liefern und nicht auseinanderlaufen. Nur einfache, JSON-serialisierbare Werte -- `{{ ... | tojson
+    }}` kann keine SQLAlchemy-Objekte direkt serialisieren."""
+    return {
+        "incident_title": flight.incident.title,
+        "kind": flight.incident.kind,
+        "pilot": flight.pilot.display_name if flight.pilot else None,
+        "camera_operator": flight.camera_operator.display_name if flight.camera_operator else None,
+        "started_at": flight.started_at.isoformat() if flight.started_at else None,
+        "start": {"lat": flight.start_lat, "lon": flight.start_lon}
+        if flight.start_lat is not None and flight.start_lon is not None else None,
+        "end": {"lat": flight.end_lat, "lon": flight.end_lon}
+        if flight.end_lat is not None and flight.end_lon is not None else None,
+        "detail_url": url_for("incidents.flight_edit", incident_id=flight.incident_id, flight_id=flight.id),
+    }
 
 
 def normalize_incident_kind(raw: str | None) -> str:

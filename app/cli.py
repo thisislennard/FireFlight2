@@ -389,4 +389,28 @@ def register_cli(app: Flask) -> None:
         else:
             click.echo("RC-Flugende-Test-Wizard existiert bereits.")
 
+        # Fachliche Dashboard-Widgets (Phase 13) -- exemplarisch je einer Rolle zugewiesen, damit sie
+        # ohne manuellen Admin-Schritt live sichtbar sind: Flugleiter (genehmigt Startanfragen, hat
+        # daher Interesse an aktiven Flügen) bekommt die Flugbuch-Karte, Pilot/Kamera (meldet laut
+        # Konzeptdokument Abschnitt 9 technische Probleme aus dem Feld) das Melde-Formular. Die
+        # generelle Dashboard-Zusammenstellung bleibt Admin-Aufgabe (spec-struktur.md Abschnitt 4)
+        # -- diese Zuweisung ist nur für Testdaten/Verifikation, nicht Teil von `init-fireflight`.
+        from app.dashboards.services import add_widget, get_or_create_dashboard
+
+        flight_leader_dashboard = get_or_create_dashboard(roles["flight_leader"])
+        if not any(w.widget_type == "incidents.flight_map" for w in flight_leader_dashboard.widgets):
+            add_widget(
+                flight_leader_dashboard, widget_type="incidents.flight_map", title="Flugbuch-Karte",
+                config={"limit": 10},
+            )
+            click.echo("Flugbuch-Karte-Widget zum Flugleiter-Dashboard hinzugefügt.")
+
+        pilot_camera_dashboard = get_or_create_dashboard(roles["pilot_camera"])
+        if not any(w.widget_type == "tickets.report_form" for w in pilot_camera_dashboard.widgets):
+            add_widget(
+                pilot_camera_dashboard, widget_type="tickets.report_form",
+                title="Technisches Problem melden", config={},
+            )
+            click.echo("Problem-melden-Widget zum Pilot/Kamera-Dashboard hinzugefügt.")
+
         click.echo("Testdaten sichergestellt.")

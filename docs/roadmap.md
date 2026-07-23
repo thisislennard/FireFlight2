@@ -496,15 +496,71 @@ erst nach allen Fachmodulen).
 
 Testsuite insgesamt: 205/205 grün (`pytest`, lokal gegen `fireflight2_test`).
 
+### Phase 13 — fachliche Dashboard-Module (IN ARBEIT, Stand 2026-07-23 Abend -- hier weitermachen)
+Implementierung fertig, Live-Verifikation nicht ganz abgeschlossen -- Session wurde vom Nutzer bewusst
+für den Tag beendet, bevor der letzte Verifikationsschritt lief. **Nicht als "fertig" einsortieren,
+bevor die drei Punkte unter "Nächste Schritte" unten erledigt sind.**
+
+**Umgesetzt:** neuer `FireFlightModule.register_template_globals(app)`-Hook (`app/modules/base.py`,
+`app/modules/registry.py`) -- Andockpunkt für Jinja-Globals, die Fachmodul-Widget-Templates brauchen,
+da `context_processor`-Werte (`current_user`, `has_permission`) im `render_widget`-Makro nicht sichtbar
+sind (nur echte Globals, exakt das schon in Phase 1 dokumentierte Muster). Zwei neue Widgets darüber
+registriert:
+- **Flugbuch-/Karten-Widget** (`incidents.flight_map`, Konzeptdokument Abschnitt 9 "Karte -- aktuelle
+  Standorte der Piloten"): `app/modules/incidents/widgets.py: flight_map_widget_data()`, Template
+  `app/templates/modules/incidents/_widget_flight_map.html`, kompakte Leaflet-Karte
+  (`app/static/js/incidents_widget_map.js`, mehrinstanzfähig über `.incidents-widget-map` +
+  `data-map-data`). `list_flights_with_location()` um `limit`-Parameter erweitert (neueste zuerst),
+  Marker-Serialisierung in `services.serialize_flight_marker()` ausgelagert und von der vollen
+  Kartenseite (`incidents.map_view`) UND dem Widget gemeinsam genutzt, damit beide nicht auseinanderlaufen.
+- **"Technisches Problem melden"-Widget** (`tickets.report_form`, Konzeptdokument Abschnitt 9): Formular
+  direkt im Dashboard (Titel/Beschreibung/Drohne/Foto), neue Route `POST /tickets/melden`
+  (`app/modules/tickets/routes.py: widget_report()`) -- erstellt Ticket + optionales Foto in einem
+  Aufwasch (anders als die bestehende `ticket_new`-Seite, die auf die Detailseite weiterleitet), Erfolg/
+  Fehler per `flash()` statt eigener Seite.
+
+Beide Widgets prüfen ihre Berechtigung (`incidents.view` bzw. `tickets.create`) selbst in Python
+(`role_has_permission(get_active_role(), ...)`) statt sich auf `has_permission()` aus dem Template zu
+verlassen -- aus demselben Grund wie oben (Makro-Include sieht keine context_processor-Werte).
+`flask seed-test-data` hängt die Widgets exemplarisch an je ein Test-Dashboard (Flugleiter bekommt die
+Karte, Pilot/Kamera das Melde-Formular) -- die eigentliche Dashboard-Zusammenstellung bleibt bewusst
+Admin-Aufgabe (spec-struktur.md Abschnitt 4), das ist nur für Testdaten/Verifikation. 13 neue Tests
+(`tests/test_module_widgets.py` neu, plus 1 in `tests/test_incidents.py` für den `limit`-Parameter).
+Testsuite: **218/218 grün.** Keine Migration nötig (keine neuen DB-Spalten).
+
+**Live-Verifikation (Teilstand):** Flugbuch-Karte-Widget gegen den echten Dev-Server bestätigt --
+`test_flight_leader` eingeloggt, `/dashboard/` zeigt die echte, korrekt nach `limit` begrenzte
+Marker-Liste mit realen Flugdaten aus der DB (inkl. `detail_url`, Pilot, Kamera-Operator). Melde-Formular-
+Widget bestätigt korrekt zu rendern (`action="/tickets/melden"`, Titel-/Foto-Feld vorhanden) auf
+`test_pilot_camera`s Dashboard. **Nicht abgeschlossen:** der eigentliche `POST /tickets/melden`
+Live-Test (mit Foto-Upload) wurde mitten im `curl`-Aufruf unterbrochen, weil der Nutzer die Session für
+den Tag beenden wollte -- per DB-Check bestätigt, dass dabei **kein** Ticket/keine Karteileiche entstanden
+ist (sauberer Zustand). Zusätzlich beim Live-Test aufgefallen: zwei Alt-Testeinsätze aus einer früheren
+Phase-12-Debug-Session (`Live-Verifikation Übung`, `Live-Test-Einsatz`) tauchen jetzt sichtbar im
+Flugbuch-Karte-Widget auf -- Aufräumen war nach Phase 12 nicht vollständig (nur 4 der damals
+angelegten Test-Einsätze wurden entfernt).
+
+**Nächste Schritte (in dieser Reihenfolge, bevor Phase 13 als fertig gilt):**
+1. `POST /tickets/melden` gegen den Dev-Server zu Ende verifizieren (mit UND ohne Foto-Anhang), inkl.
+   Flash-Meldung und Redirect zurück zu `/dashboard/`.
+2. Die beiden Alt-Test-Einsätze `Live-Verifikation Übung` und `Live-Test-Einsatz` aus der lokalen
+   Dev-DB entfernen (reines Aufräumen, keine Anwendungsänderung).
+3. Diesen Abschnitt durch einen normalen "Fertig und live verifiziert"-Eintrag ersetzen (Stil wie
+   Phase 1-12 oben) und den passenden `CLAUDE.md`-Verlaufseintrag von "Zwischenstand" auf den finalen
+   Wortlaut umstellen.
+
+Erst danach weiter mit Phase 14 (externe Integrationen DWD/OpenSky) laut Roadmap-Reihenfolge, oder mit
+der weiterhin ausstehenden Hardware-Verifikation auf der echten DJI RC Plus (Phase 4/5/12, s. u.) --
+je nachdem, was der Nutzer als Nächstes vorgibt.
+
 ### Als Nächstes (Reihenfolge s. Restrukturierungsplan)
-Hardware-Verifikation auf der echten DJI RC Plus (Phase 4/5, s. o.: Push-Rundlauftest im normalen
-Browser zuerst, danach PWA-Installation über `/rc/pair` → `/rc/home` mit einem der beiden
+**Zuerst die drei Punkte oben unter Phase 13 "Nächste Schritte" abschließen.** Danach: Hardware-
+Verifikation auf der echten DJI RC Plus (Phase 4/5, s. o.: Push-Rundlauftest im normalen Browser
+zuerst, danach PWA-Installation über `/rc/pair` → `/rc/home` mit einem der beiden
 `seed-test-data`-Testgeräte, Hintergrund-Push, DJI-Pilot-2-Deep-Link-URL ermitteln und in
-Administration → RC-Geräte eintragen, außerdem jetzt zusätzlich der komplette Preflight→Flugstart→
-Flugende-Zyklus aus Phase 12 auf echter Hardware) → Phase 13 fachliche Dashboard-Module (u. a. ein
-Flugbuch-/Karten-Widget auf Basis der Phase-9-Daten und ein "Technisches Problem melden"-Widget auf
-Basis von Phase 10) → Phase 14 externe Integrationen (DWD/OpenSky) → Phase 15 Tests und Dokumentation.
-Offen und mit dem Nutzer zu klären: ob/wann eine "Büro-PWA" (Installierbarkeit der
+Administration → RC-Geräte eintragen, außerdem der komplette Preflight→Flugstart→Flugende-Zyklus aus
+Phase 12 auf echter Hardware) → Phase 14 externe Integrationen (DWD/OpenSky) → Phase 15 Tests und
+Dokumentation. Offen und mit dem Nutzer zu klären: ob/wann eine "Büro-PWA" (Installierbarkeit der
 Desktop-Oberfläche, Konzeptdokument Abschnitt 1) nachgezogen wird -- im
 15-Phasen-Plan bisher keiner Phase explizit zugeordnet.
 
