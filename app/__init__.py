@@ -53,6 +53,7 @@ def _register_blueprints(app: Flask) -> None:
     from app.auth.routes import bp as auth_bp
     from app.dashboards.routes import bp as dashboards_bp
     from app.notifications.routes import bp as notifications_bp
+    from app.profile.routes import bp as profile_bp
     from app.rc.routes import bp as rc_bp
     from app.roles.routes import bp as roles_bp
 
@@ -61,6 +62,7 @@ def _register_blueprints(app: Flask) -> None:
     app.register_blueprint(dashboards_bp)
     app.register_blueprint(administration_bp)
     app.register_blueprint(notifications_bp)
+    app.register_blueprint(profile_bp)
     app.register_blueprint(rc_bp)
 
 

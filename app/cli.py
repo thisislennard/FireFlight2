@@ -121,6 +121,11 @@ def register_cli(app: Flask) -> None:
                 display_name=f"Test {role.name}",
             )
             user.roles = [role]
+            if key == "pilot_camera":
+                # Deckt beide RC-Testgeräte ab (s. u.) -- entspricht dem Konzeptdokument Abschnitt 5.1
+                # ("Ein User kann beide Qualifikationen haben").
+                user.is_pilot = True
+                user.is_camera_operator = True
             db.session.commit()
             created_users += 1
         click.echo(f"{created_users} neue Testuser angelegt (PIN 4726, sofern noch nicht vorhanden).")

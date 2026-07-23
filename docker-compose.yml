@@ -36,6 +36,10 @@ services:
       VAPID_CLAIMS_EMAIL: ${VAPID_CLAIMS_EMAIL:-admin@example.org}
     ports:
       - "${HOST_PORT:-8000}:8000"
+    volumes:
+      # Profilbilder (app/core/utilities/uploads.py) -- ohne eigenes Volume gingen sie bei jedem
+      # Image-Rebuild verloren, da /app/instance sonst nur im Container-Layer liegt.
+      - fireflight2-uploads-data:/app/instance
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/auth/login')"]
       interval: 10s
@@ -46,6 +50,7 @@ services:
 
 volumes:
   fireflight2-db-data:
+  fireflight2-uploads-data:
 
 networks:
   fireflight2-internal:

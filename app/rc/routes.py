@@ -74,6 +74,15 @@ def login():
         else:
             if user is None:
                 error = "Benutzername/E-Mail oder PIN ist falsch."
+            elif not user.has_qualification(g.rc_device.required_qualification):
+                # PIN war korrekt -- bewusst KEIN _register_failed_attempt/Lockout, das ist kein
+                # Bruteforce-Indiz, sondern ein "falsches Gerät für diese Qualifikation"-Fall
+                # (Phase 7: Qualifikationsfilter, Konzeptdokument Abschnitt 5.1).
+                log_event("rc_device.operator_login_denied", result="failure", user=user,
+                           object_type="rc_device", object_id=str(g.rc_device.id),
+                           extra_data={"reason": "qualification_mismatch",
+                                       "required": g.rc_device.required_qualification})
+                error = "Dieses Gerät ist für eine andere Qualifikation vorgesehen. Ihr Konto ist dafür nicht freigeschaltet."
             else:
                 # session.clear() wie beim Desktop-Login (Session-Fixation-Schutz) -- die
                 # Geräte-Zuordnung wird danach neu gesetzt, die Geräte-Session selbst (Cookie) ist

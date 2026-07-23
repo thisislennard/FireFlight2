@@ -1,3 +1,6 @@
+import pytest
+
+from app.core.exceptions import ValidationError
 from app.extensions import db
 from app.rc.models import RcDevice
 from app.rc.services import create_device, deactivate_device, regenerate_device_key, resolve_device_by_key
@@ -6,6 +9,11 @@ from tests.conftest import login
 
 def _create_device(organization, label="RC-Testgerät", required_qualification=None):
     return create_device(organization.id, label=label, required_qualification=required_qualification)
+
+
+def test_create_device_rejects_unknown_qualification(app, organization):
+    with pytest.raises(ValidationError):
+        create_device(organization.id, label="X", required_qualification="ninja")
 
 
 # --- Services --------------------------------------------------------------------------
@@ -143,6 +151,41 @@ def test_deactivating_device_forces_new_pairing(client, app, organization, admin
     response = client.get("/rc/home")
     assert response.status_code == 302
     assert response.headers["Location"].endswith("/rc/pair")
+
+
+# --- Qualifikationsfilter (Phase 7) --------------------------------------------------------
+
+
+def test_operator_login_denied_when_device_requires_missing_qualification(client, app, organization, regular_user):
+    _pair(client, organization, required_qualification="pilot")
+    response = client.post("/rc/login", data={"identifier": "pilot", "pin": "4726"})
+    assert response.status_code == 200
+    assert "andere Qualifikation" in response.get_data(as_text=True)
+
+
+def test_operator_login_succeeds_when_qualification_matches(client, app, organization, regular_user):
+    regular_user.is_pilot = True
+    db.session.commit()
+    _pair(client, organization, required_qualification="pilot")
+
+    response = client.post("/rc/login", data={"identifier": "pilot", "pin": "4726"})
+    assert response.status_code == 302
+    assert response.headers["Location"].endswith("/rc/home")
+
+
+def test_operator_login_unaffected_when_device_has_no_qualification_filter(client, app, organization, regular_user):
+    _pair(client, organization)  # required_qualification=None
+    response = client.post("/rc/login", data={"identifier": "pilot", "pin": "4726"})
+    assert response.status_code == 302
+    assert response.headers["Location"].endswith("/rc/home")
+
+
+def test_qualification_denial_does_not_count_as_failed_login_attempt(client, app, organization, regular_user):
+    _pair(client, organization, required_qualification="camera_operator")
+    client.post("/rc/login", data={"identifier": "pilot", "pin": "4726"})
+    db.session.refresh(regular_user)
+    assert regular_user.failed_login_attempts == 0
+    assert regular_user.locked_until is None
 
 
 # --- Admin-UI ----------------------------------------------------------------------------

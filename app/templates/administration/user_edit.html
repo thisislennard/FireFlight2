@@ -33,6 +33,14 @@
       {% endfor %}
     </select>
   </div>
+  <div class="field">
+    <label>Qualifikation</label>
+    <div class="checkbox-list">
+      <label class="checkbox-row"><input type="checkbox" name="is_pilot" {% if user.is_pilot %}checked{% endif %}> Pilot</label>
+      <label class="checkbox-row"><input type="checkbox" name="is_camera_operator" {% if user.is_camera_operator %}checked{% endif %}> Kamera-Operator</label>
+    </div>
+    <p class="text-muted">Steuert, welche RC-Geräte (Administration → RC-Geräte) diesem Nutzer offenstehen.</p>
+  </div>
   {% if user.requires_admin_unlock %}
   <div class="field">
     <div class="flash flash-error">Konto ist nach mehrfacher Sperre gesperrt und benötigt eine manuelle Entsperrung.</div>

@@ -8,7 +8,7 @@ v1 bleibt unangetastet produktiv unter `G:\5 GitHub\FireFlight`. Volle Architekt
 **Vollständige Struktur-/Architektur-Vorgabe des Nutzers:** `docs/spec-struktur.md` (wörtliche Spezifikation vom 2026-07-19, Ausbaustufe 1). **Vollständige Design-Vorgabe:** `docs/spec-design.md` (Design-Tokens, Komponenten-CSS, Begründungen). **Konzeptvorgabe Ausbaustufe 2:** `fireflight2-konzept-struktur.md` (Fachmodule + PWA/Push, vom Nutzer 2026-07-23 geliefert) — daraus abgeleiteter Restrukturierungs-/Phasenplan wurde vom Nutzer freigegeben, liegt nicht im Repo. **Umsetzungsstand/Roadmap:** `docs/roadmap.md` — was aus welcher Ausbaustufe bereits implementiert und live verifiziert ist, was noch offen ist, was bewusst verschoben wurde. Vor jeder neuen Session zuerst dort nachsehen. Diese Datei hier fasst zusammen und verweist dorthin — bei Detailfragen zuerst dort nachsehen.
 
 ## Umsetzungsstand
-Ausbaustufe 1 aus `docs/spec-struktur.md` ist **implementiert und lokal live verifiziert** (venv + lokales PostgreSQL, da auf dieser Maschine kein Docker installiert ist): Datenmodell, Auth, Rollen/Berechtigungen, Dashboards, Modul-Registry, Administration, CLI-Init, Templates/Design. Ausbaustufe 2 (Fachmodule + PWA/Push aus `fireflight2-konzept-struktur.md`) ist **in Arbeit** — Phase 1 (Modul-Registry-Bootstrap), Phase 2 (Rollen ohne Dashboard), Phase 3 (PIN-Login-Migration, Passwort komplett ersetzt), Phase 4 (Notifications-Kern, Web-Push), Phase 5 (RC-Hardware-Feasibility-Spike, reduzierter Umfang) und Phase 6 (Drohneneinheiten) sind umgesetzt und getestet, weitere 9 Phasen (Nutzerprofile, Wizard-Engine, Missions/Logbuch, Tickets, RC-PWA-Vollausbau, Dashboard-Module, externe Integrationen) stehen aus. Die eigentliche Hardware-Verifikation von Phase 4/5 (echter Browser-/RC-Push-Rundlauf auf der realen DJI RC Plus) ist noch offen — nur Code + automatisierte Tests + `curl`-Rundlauf gegen den Dev-Server sind verifiziert. Die zuvor implementierte DJI-FlightHub-2-Integration wurde am 2026-07-23 auf Nutzerwunsch **komplett wieder entfernt** (kein Fachmodul/keine Integration soll den Kern ablenken, bevor dieser fertig steht) — Details im Verlauf unten. Details, offene Punkte und nächste Schritte: `docs/roadmap.md`.
+Ausbaustufe 1 aus `docs/spec-struktur.md` ist **implementiert und lokal live verifiziert** (venv + lokales PostgreSQL, da auf dieser Maschine kein Docker installiert ist): Datenmodell, Auth, Rollen/Berechtigungen, Dashboards, Modul-Registry, Administration, CLI-Init, Templates/Design. Ausbaustufe 2 (Fachmodule + PWA/Push aus `fireflight2-konzept-struktur.md`) ist **in Arbeit** — Phase 1 (Modul-Registry-Bootstrap), Phase 2 (Rollen ohne Dashboard), Phase 3 (PIN-Login-Migration, Passwort komplett ersetzt), Phase 4 (Notifications-Kern, Web-Push), Phase 5 (RC-Hardware-Feasibility-Spike, reduzierter Umfang), Phase 6 (Drohneneinheiten) und Phase 7 (Nutzerprofil-Erweiterung inkl. scharf geschaltetem RC-Qualifikationsfilter) sind umgesetzt und getestet, weitere 8 Phasen (Wizard-Engine, Missions/Logbuch, Tickets, RC-PWA-Vollausbau, Dashboard-Module, externe Integrationen) stehen aus. Die eigentliche Hardware-Verifikation von Phase 4/5 (echter Browser-/RC-Push-Rundlauf auf der realen DJI RC Plus) ist noch offen — nur Code + automatisierte Tests + `curl`-Rundlauf gegen den Dev-Server sind verifiziert. Die zuvor implementierte DJI-FlightHub-2-Integration wurde am 2026-07-23 auf Nutzerwunsch **komplett wieder entfernt** (kein Fachmodul/keine Integration soll den Kern ablenken, bevor dieser fertig steht) — Details im Verlauf unten. Details, offene Punkte und nächste Schritte: `docs/roadmap.md`.
 
 ## Warum Neuentwicklung statt Weiterentwicklung von v1
 - **Technische Basis modernisieren** — weg vom frameworklosen Python-Stdlib-HTTP-Server (`http.server.ThreadingHTTPServer`) aus v1
@@ -66,6 +66,46 @@ Vollständige Liste: `FireFlight/README.md`, Abschnitt „Funktionen". Kurzfassu
 - **Passwort-Hashing** in v1: PBKDF2-HMAC-SHA256, 120.000 Iterationen, 16-Byte-Salt — als Mindeststandard falls kein Framework-Default (z. B. Flask-Bcrypt) gewählt wird
 
 ## Verlauf / Planungsentscheidungen
+### 2026-07-23 (Fortsetzung) — Phase 7: Nutzerprofil-Erweiterung umgesetzt
+Auf "schau dir die Roadmap an und arbeite weiter" begonnen. Der Restrukturierungsplan mit den
+Phase-7-Details liegt nicht im Repo; als Quelle diente stattdessen `fireflight2-konzept-struktur.md`
+Abschnitt 8 ("Nutzerprofil") + Abschnitt 5.1 ("Qualifikation"), auf Nutzerhinweis noch einmal gezielt
+gelesen. Vollständige technische Details in `docs/roadmap.md` Abschnitt „Status: Ausbaustufe 2".
+
+Kernentscheidung: `User.is_pilot`/`is_camera_operator` als zwei Booleans (nicht wie `unit_managers`
+eine m:n-Tabelle) — es gibt nur die zwei im Konzept benannten Werte, ein User kann laut Konzept beide
+gleichzeitig haben. `RcDevice.required_qualification` war seit Phase 5 nur ein unausgewertetes Feld
+(sogar die eigene Validierungskonstante `DEVICE_KEY_VALID_QUALIFICATIONS` in `app/rc/services.py` wurde
+nie benutzt) — beides jetzt scharf geschaltet: `create_device()` validiert dagegen, `rc.login()` prüft
+nach korrekter PIN zusätzlich die Qualifikation und weist bei Nichterfüllung ohne Fehlversuchszähler ab
+(kein Bruteforce-Indiz). Bewusst NICHT gebaut: das im Konzept beschriebene Zwei-Schritt-„User aus
+Liste wählen, dann PIN"-UI für den RC-Login — das bleibt beim bestehenden einstufigen Username+PIN-Login
+aus Phase 5, der neue Zwei-Schritt-Flow ist als Umfang für Phase 11 (RC-PWA-Vollausbau) vorgesehen, nicht
+Phase 7.
+
+Neues Kern-Package `app/profile/` für Self-Service (E-Mail, Telefonnummer, Profilbild) plus
+read-only Übersicht (Heimateinheit/verwaltete Einheiten aus Phase 6, Funktion, Rollen) — abgegrenzt von
+den Admin-verwalteten Feldern (Rollen, Heimateinheit, Qualifikation bleiben in
+`administration/users/<id>`), exakt der Trennung "persönliche Daten" vs. "Übersicht" aus dem
+Konzeptdokument folgend. Profilbild-Upload ist komplett neue Infrastruktur (`app/core/utilities/uploads.py`)
+— vorher gab es im Projekt keinerlei Datei-Upload (das `Organization.logo_path`-Feld existierte bereits,
+aber ohne jede Upload-Route). Validiert per Magic-Bytes statt Dateiendung/Content-Type (verhindert z. B.
+eine umbenannte Nicht-Bild-Datei), max. 5 MB, ein Bild pro User. Neues Docker-Volume
+`fireflight2-uploads-data:/app/instance`, damit Profilbilder Container-Rebuilds überleben — `Dockerfile`
+legt das Zielverzeichnis vor dem `chown` an, weil Docker beim ersten Mounten eines named volumes Inhalt
+und Rechte aus dem bereits im Image vorhandenen Verzeichnis übernimmt.
+
+**Live verifiziert** gegen den echten Dev-Server (venv + lokales PostgreSQL): Admin setzt Qualifikation
+über die neuen Checkboxen in `administration/users/<id>` → RC-Gerät mit passender Qualifikation lässt
+den Login zu, mit fehlender Qualifikation weist es mit eigener Fehlermeldung ab → Self-Service-Profil
+(E-Mail/Telefon geändert, echtes PNG hochgeladen und mit korrektem `Content-Type` wieder abgerufen,
+Bild entfernt → danach 404). **Nebenfund dabei:** das PIN des lokalen `admin`-Testaccounts wich von der
+Dokumentation ab (vermutlich aus einer früheren manuellen Sitzung) — lokal auf `4726` zurückgesetzt,
+kein Code-Bug. Testsuite 111/111 grün (23 neue Tests: `tests/test_profile.py` neu, `tests/test_rc.py`
+um Qualifikationsfilter-Fälle ergänzt). Migration `f07570aabbd1` gegen die reale Dev-DB angewendet,
+Drift-Check zeigt nur die bekannten DJI-Alttabellen (wie schon bei `ad2f3b109171`, Autogenerate schlug
+erneut deren Drop vor — bewusst nicht übernommen).
+
 ### 2026-07-19 — Projektstart, erste Architekturentscheidungen
 Nutzer möchte FireFlight komplett neu bauen (kein Fork/Weiterentwicklung), Ordner `FireFlight2` existierte bereits mit GitHub-Remote. In einer Planungssession (Plan-Mode) wurden folgende Grundsatzentscheidungen getroffen: Backend Flask (statt v1s Stdlib-Server oder FastAPI), Multi-Tenancy wird vorerst komplett weggelassen (nur eine Organisation), Design-System wird komplett neu entworfen statt v1-Theme zu übernehmen. Motivation für den Neuanfang: technische Basis modernisieren, Architektur/Code-Qualität verbessern, Feature-Set neu denken.
 

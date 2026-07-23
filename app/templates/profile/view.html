@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block title %}Mein Profil – FireFlight2{% endblock %}
+{% block page_title %}Mein Profil{% endblock %}
+{% block content %}
+{% if error %}<div class="flash flash-error">{{ error }}</div>{% endif %}
+
+<div class="card elev-sm" style="max-width:560px;">
+  <div class="profile-header">
+    {% if current_user.profile_image_filename %}
+    <img class="avatar" src="{{ url_for('profile.image', user_id=current_user.id) }}" alt="">
+    {% else %}
+    <div class="avatar-placeholder">{{ current_user.display_name[:1] | upper }}</div>
+    {% endif %}
+    <div>
+      <span class="card-kicker">Profilbild</span>
+      <h2 class="card-title">{{ current_user.display_name }}</h2>
+    </div>
+  </div>
+
+  <form method="post" enctype="multipart/form-data" hx-encoding="multipart/form-data">
+    <div class="field">
+      <label>Profilbild ändern (PNG, JPEG oder WebP, max. 5 MB)</label>
+      <input class="input" type="file" name="profile_image" accept="image/png,image/jpeg,image/webp">
+    </div>
+    <div class="field"><label>E-Mail</label><input class="input" type="email" name="email" value="{{ current_user.email }}" required></div>
+    <div class="field"><label>Telefonnummer</label><input class="input" type="tel" name="phone_number" value="{{ current_user.phone_number or '' }}"></div>
+    <div class="form-actions">
+      <button type="submit" class="btn btn-primary">Speichern</button>
+    </div>
+  </form>
+  {% if current_user.profile_image_filename %}
+  <form method="post" action="{{ url_for('profile.remove_image') }}">
+    <button type="submit" class="btn btn-ghost">Profilbild entfernen</button>
+  </form>
+  {% endif %}
+</div>
+
+<div class="card elev-sm" style="max-width:560px; margin-top: var(--space-3);">
+  <span class="card-kicker">Übersicht</span>
+  <h2 class="card-title">Zugehörigkeit &amp; Funktion</h2>
+
+  <p class="card-body" style="margin-bottom:0;">Heimateinheit</p>
+  <p>{{ current_user.home_unit.name if current_user.home_unit else "Keine" }}</p>
+
+  <p class="card-body" style="margin-bottom:0;">Verwaltete Einheiten</p>
+  {% if current_user.managed_units %}
+  <p>
+    {% for unit in current_user.managed_units %}<span class="tag tag-neutral">{{ unit.name }}</span>{% endfor %}
+  </p>
+  {% else %}
+  <p>Keine</p>
+  {% endif %}
+
+  <p class="card-body" style="margin-bottom:0;">Funktion</p>
+  {% if current_user.is_pilot or current_user.is_camera_operator %}
+  <p>
+    {% if current_user.is_pilot %}<span class="tag tag-accent">Pilot</span>{% endif %}
+    {% if current_user.is_camera_operator %}<span class="tag tag-accent">Kamera-Operator</span>{% endif %}
+  </p>
+  {% else %}
+  <p>Keine zugewiesen -- bei Bedarf einen Administrator ansprechen.</p>
+  {% endif %}
+
+  <p class="card-body" style="margin-bottom:0;">Rollen</p>
+  <p>
+    {% for role in current_user.roles %}<span class="tag tag-outline">{{ role.name }}</span>{% endfor %}
+  </p>
+</div>
+{% endblock %}

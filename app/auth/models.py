@@ -9,6 +9,13 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.core.models import TimestampMixin, UUIDPrimaryKeyMixin
 from app.extensions import db
 
+# Einzige Quelle der Wahrheit für die beiden Funktionen aus dem Konzeptdokument (Abschnitt 5.1) --
+# app/rc/services.py validiert RcDevice.required_qualification dagegen (Phase 7: der Filter wird
+# erst hier scharf geschaltet, s. app/rc/routes.py: login()).
+QUALIFICATION_PILOT = "pilot"
+QUALIFICATION_CAMERA_OPERATOR = "camera_operator"
+QUALIFICATIONS = (QUALIFICATION_PILOT, QUALIFICATION_CAMERA_OPERATOR)
+
 
 class User(UUIDPrimaryKeyMixin, TimestampMixin, UserMixin, db.Model):
     __tablename__ = "users"
@@ -38,6 +45,19 @@ class User(UUIDPrimaryKeyMixin, TimestampMixin, UserMixin, db.Model):
     # (Profile) und Phase 9 (Einsatz/Übung). Ein User kann zusätzlich mehrere Einheiten *managen*
     # (managed_units), unabhängig von seiner eigenen Zugehörigkeit.
     home_unit_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("units.id"))
+    # "Funktion" aus dem Konzeptdokument (Abschnitt 5.1/8) -- bewusst zwei Booleans statt einer
+    # m:n-Tabelle wie unit_managers: es gibt nur diese zwei fest benannten Werte, ein User kann laut
+    # Konzept BEIDE gleichzeitig haben (nicht exklusiv wie eine Rolle). Admin-verwaltet
+    # (administration/users/<id>), nicht Self-Service -- steuert den RC-Gerätezugang (app/rc/).
+    is_pilot: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    is_camera_operator: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    # Self-Service-Profildaten (Phase 7, Konzeptdokument Abschnitt 8) -- im Unterschied zu den
+    # Admin-verwalteten Feldern oben über app/profile/ vom User selbst änderbar.
+    phone_number: Mapped[str | None] = mapped_column(String(50))
+    # Nur der generierte Dateiname (z. B. "<user_id>.jpg"), nie ein clientseitig gelieferter Pfad --
+    # verhindert Path Traversal beim Servieren (app/profile/routes.py). Tatsächliche Datei liegt unter
+    # app/core/utilities/uploads.py: profile_image_dir().
+    profile_image_filename: Mapped[str | None] = mapped_column(String(255))
 
     organization = relationship("Organization")
     roles = relationship("Role", secondary="user_roles", back_populates="users")
@@ -47,6 +67,22 @@ class User(UUIDPrimaryKeyMixin, TimestampMixin, UserMixin, db.Model):
 
     def get_id(self) -> str:
         return str(self.id)
+
+    @property
+    def qualifications(self) -> list[str]:
+        quals = []
+        if self.is_pilot:
+            quals.append(QUALIFICATION_PILOT)
+        if self.is_camera_operator:
+            quals.append(QUALIFICATION_CAMERA_OPERATOR)
+        return quals
+
+    def has_qualification(self, key: str | None) -> bool:
+        """`key=None` steht für "kein Filter" (RcDevice.required_qualification unset) -- gilt immer
+        als erfüllt, s. app/rc/routes.py: login()."""
+        if not key:
+            return True
+        return key in self.qualifications
 
     @property
     def is_active(self) -> bool:

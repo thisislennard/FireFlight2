@@ -7,7 +7,14 @@ from flask_login import current_user, login_required
 from app.audit.models import AuditLog
 from app.audit.service import log_event
 from app.auth.models import User
-from app.auth.services import assign_roles, create_user, list_users, set_user_active, unlock_account
+from app.auth.services import (
+    assign_roles,
+    create_user,
+    list_users,
+    set_qualifications,
+    set_user_active,
+    unlock_account,
+)
 from app.core.exceptions import ValidationError
 from app.core.security.passwords import is_trivial_pin
 from app.core.security.permissions import ensure_permission, get_active_role, permission_required, role_has_permission
@@ -110,6 +117,11 @@ def user_edit(user_id):
             assign_roles(user, role_ids)
             home_unit_id = request.form.get("home_unit_id") or None
             assign_home_unit(user, uuid.UUID(home_unit_id) if home_unit_id else None)
+            set_qualifications(
+                user,
+                is_pilot="is_pilot" in request.form,
+                is_camera_operator="is_camera_operator" in request.form,
+            )
             log_event("user.edit", result="success", object_type="user", object_id=str(user.id))
             return redirect(url_for("administration.users"))
         except ValidationError as exc:

@@ -157,17 +157,70 @@ erst nach allen Fachmodulen).
   Login allein reicht nicht) → `/administration/units` zeigt alle drei Testeinheiten,
   Benutzer-Editor zeigt die neue Heimateinheit-Auswahl korrekt befüllt.
 
-Testsuite insgesamt: 88/88 grün (`pytest`, lokal gegen `fireflight2_test`).
+- **Phase 7 — Nutzerprofil-Erweiterung**: Konzeptdokument (`fireflight2-konzept-struktur.md`)
+  Abschnitt 8 diente als Detailquelle, da der Restrukturierungsplan selbst nicht im Repo liegt.
+  `User` um `is_pilot`/`is_camera_operator` (zwei Booleans statt m:n-Tabelle -- nur zwei fest
+  benannte Werte, ein User kann laut Konzept beide gleichzeitig haben), `phone_number` und
+  `profile_image_filename` erweitert (Migration `f07570aabbd1`); neue Konstanten
+  `app.auth.models.QUALIFICATION_PILOT`/`QUALIFICATION_CAMERA_OPERATOR`/`QUALIFICATIONS` sind jetzt
+  die einzige Quelle der Wahrheit dafür, `app/rc/services.py: create_device()` validiert
+  `required_qualification` seither tatsächlich dagegen (vorher deklariert, aber nie geprüft).
+  **Der eigentliche Qualifikationsfilter ist jetzt scharf**: `app/rc/routes.py: login()` prüft nach
+  erfolgreicher PIN-Eingabe `user.has_qualification(device.required_qualification)` und weist bei
+  Nichterfüllung mit einer eigenen Fehlermeldung ab, ohne das als Fehlversuch gegen die
+  Sperr-Eskalation zu zählen (PIN war korrekt, es ist kein Bruteforce-Indiz). Bewusst **kein**
+  Zwei-Schritt-„User aus Liste wählen"-UI wie im Konzeptdokument Abschnitt 5.1 beschrieben -- das
+  bleibt Umfang für Phase 11 (RC-PWA-Vollausbau); Phase 7 behält den bestehenden einstufigen
+  Username+PIN-Login bei und ergänzt nur die Zugriffsprüfung. Qualifikationen sind Admin-verwaltet
+  (`administration/users/<id>`, Checkboxen neben Rollen/Heimateinheit), nicht Self-Service --
+  passend zur Konzeptdoku-Unterscheidung zwischen "Übersicht" (Einheit/Funktion/Rollen, nur lesend
+  im Profil) und "persönlichen Daten" (E-Mail/Telefon/Bild, dort tatsächlich änderbar).
+
+  Neues Kern-Package `app/profile/` (`GET/POST /profile/`): Self-Service-Bearbeitung von E-Mail
+  (mit Eindeutigkeitsprüfung gegen andere Konten) und Telefonnummer, Profilbild-Upload/-Entfernung,
+  read-only Übersicht (Heimateinheit, verwaltete Einheiten, Funktion, Rollen) -- Datenquellen
+  vollständig aus Phase 6 (`Unit`/`unit_managers`) und den Rollen/Qualifikationen oben. Neuer
+  Nav-Link „Mein Profil" im Topbar neben „Benachrichtigungen".
+
+  Profilbild-Upload (`app/core/utilities/uploads.py`, neues Modul, keine neue Abhängigkeit) validiert
+  per **Magic-Bytes** (PNG/JPEG/WebP-Signatur), nicht Dateiendung oder Client-Content-Type -- verhindert
+  z. B. eine als „.png" umbenannte Datei mit anderem Inhalt. Max. 5 MB, ein Bild pro User
+  (server-generierter Dateiname `<user_id>.<ext>`, alter Datei-Inhalt wird beim Ersetzen gelöscht).
+  Speicherort bewusst unter `instance_path/uploads/profile_images/`, nicht `app/static/` (Nutzerinhalte
+  getrennt vom versionierten Code) -- dafür neues Docker-Volume `fireflight2-uploads-data:/app/instance`
+  (`docker-compose.yml`), sonst gingen Bilder bei jedem Image-Rebuild verloren. `Dockerfile` legt das
+  Zielverzeichnis vor dem `chown` an, damit das non-root-Image beim ersten Volume-Mount die korrekten
+  Rechte aus dem Image-Layer übernimmt (Docker kopiert Inhalt+Rechte eines bereits im Image
+  existierenden Verzeichnisses in ein frisch erzeugtes named volume). Serviert über eine eigene,
+  login-geschützte Route (`GET /profile/image/<user_id>`, jeder eingeloggte Nutzer darf jedes
+  Profilbild sehen -- internes Single-Tenant-System, kein sensibler Inhalt), Content-Type wird anhand
+  der beim Upload gesniffter Extension gesetzt, nicht dem Dateisystem-Mimetype-Guess überlassen.
+
+  `flask seed-test-data` erweitert: `test_pilot_camera` bekommt bei Erstanlage beide Qualifikationen
+  (deckt beide vorhandenen RC-Testgeräte ab). Migration gegen die reale lokale Dev-DB verifiziert
+  (`flask db upgrade` + anschließender `flask db migrate`-Drift-Check zeigt nur noch die bekannten
+  DJI-Alttabellen). Beim Autogenerate-Lauf schlug Alembic wieder das Droppen der DJI-Alttabellen vor --
+  bewusst nicht übernommen, konsistent mit der Entscheidung in `ad2f3b109171` (Phase 4). 23 neue Tests
+  (`tests/test_profile.py`, `tests/test_rc.py` um Qualifikationsfilter-Fälle ergänzt). Live gegen den
+  echten Dev-Server verifiziert: Admin setzt Qualifikation über `/administration/users/<id>` →
+  RC-Login mit passender Qualifikation erfolgreich, mit fehlender Qualifikation abgewiesen (eigene
+  Fehlermeldung, kein Fehlversuchszähler) → Self-Service-Profil (E-Mail/Telefon geändert, echtes PNG
+  hochgeladen, per `GET /profile/image/<id>` mit korrektem `Content-Type: image/png` abgerufen, wieder
+  entfernt → danach 404). Testsuite 111/111 grün. **Nebenfund beim Live-Test:** lokale Dev-DB hatte für
+  den `admin`-Account ein von der Dokumentation abweichendes PIN (vermutlich aus einer früheren
+  manuellen Testsitzung) -- lokal auf `4726` zurückgesetzt, kein Code-Bug.
+
+Testsuite insgesamt: 111/111 grün (`pytest`, lokal gegen `fireflight2_test`).
 
 ### Als Nächstes (Reihenfolge s. Restrukturierungsplan)
 Hardware-Verifikation auf der echten DJI RC Plus (Phase 4/5 zusammen, s. o.: Push-Rundlauftest im
 normalen Browser zuerst, danach PWA-Installation über `/rc/pair` → `/rc/home` mit einem der beiden
 `seed-test-data`-Testgeräte, Hintergrund-Push, DJI-Pilot-2-Deep-Link-URL ermitteln und in
-Administration → RC-Geräte eintragen) → Phase 7 Nutzerprofil-Erweiterung (rüstet den RC-Spike auf
-echten Qualifikationsfilter nach, nutzt `Unit`/`unit_managers` aus Phase 6) → Phase 8 Wizard-Engine →
-Phase 9 Einsatz/Übung + Flugbuch → Phase 10 Tickets + Wartungsintervalle → Phase 11
-RC-PWA-Vollausbau → Phase 12 RC-Wizard-Inhalte → Phase 13 fachliche Dashboard-Module → Phase 14
-externe Integrationen (DWD/OpenSky) → Phase 15 Tests und Dokumentation.
+Administration → RC-Geräte eintragen) → Phase 8 Wizard-Engine → Phase 9 Einsatz/Übung + Flugbuch →
+Phase 10 Tickets + Wartungsintervalle → Phase 11 RC-PWA-Vollausbau (u. a. das im Konzeptdokument
+Abschnitt 5.1 beschriebene Zwei-Schritt-Login mit Nutzerauswahl vor PIN-Eingabe) → Phase 12
+RC-Wizard-Inhalte → Phase 13 fachliche Dashboard-Module → Phase 14 externe Integrationen
+(DWD/OpenSky) → Phase 15 Tests und Dokumentation.
 
 ---
 

@@ -135,6 +135,28 @@ def set_user_active(user: User, is_active: bool) -> None:
     db.session.commit()
 
 
+def update_own_profile(user: User, *, email: str, phone_number: str | None) -> None:
+    """Self-Service (app/profile/) -- im Unterschied zu Rollen/Heimateinheit/Qualifikation, die
+    Admin-verwaltet bleiben (spec-struktur.md-Erweiterung: nur "persönliche Daten" sind laut
+    Konzeptdokument Abschnitt 8 vom Nutzer selbst änderbar)."""
+    if not email:
+        raise ValidationError("E-Mail darf nicht leer sein.")
+    if email != user.email and User.query.filter(User.email == email, User.id != user.id).first() is not None:
+        raise ValidationError("Diese E-Mail-Adresse wird bereits von einem anderen Konto verwendet.")
+    user.email = email
+    user.phone_number = phone_number or None
+    db.session.commit()
+    log_event("profile.updated", result="success", user=user)
+
+
+def set_qualifications(user: User, *, is_pilot: bool, is_camera_operator: bool) -> None:
+    """Admin-verwaltet (administration/users/<id>), s. app/auth/models.py -- steuert den
+    RC-Qualifikationsfilter (app/rc/routes.py: login())."""
+    user.is_pilot = is_pilot
+    user.is_camera_operator = is_camera_operator
+    db.session.commit()
+
+
 def assign_roles(user: User, role_ids: list) -> None:
     from app.roles.models import Role
     from app.roles.services import ensure_not_last_administrator

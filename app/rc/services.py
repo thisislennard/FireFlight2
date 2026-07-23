@@ -3,12 +3,12 @@ from __future__ import annotations
 import secrets
 import uuid
 
+from app.auth.models import QUALIFICATIONS
+from app.core.exceptions import ValidationError
 from app.core.models import utcnow
 from app.core.security.passwords import hash_device_key, verify_device_key
 from app.extensions import db
 from app.rc.models import RcDevice
-
-DEVICE_KEY_VALID_QUALIFICATIONS = ("pilot", "camera_operator")
 
 
 def create_device(
@@ -16,6 +16,8 @@ def create_device(
 ) -> tuple[RcDevice, str]:
     """Legt ein neues RC-Gerät an und gibt den Klartext-Geräteschlüssel EINMALIG zurück -- danach ist
     nur noch der Hash gespeichert (kein Wiederherstellen, nur `regenerate_device_key()`)."""
+    if required_qualification and required_qualification not in QUALIFICATIONS:
+        raise ValidationError("Ungültige Qualifikation.")
     device_key = secrets.token_urlsafe(24)
     device = RcDevice(
         organization_id=organization_id,

@@ -52,6 +52,7 @@
           {% elif active_role %}
           <span class="tag tag-neutral">{{ active_role.name }}</span>
           {% endif %}
+          <a class="btn btn-ghost" href="{{ url_for('profile.view') }}">Mein Profil</a>
           <a class="btn btn-ghost" href="{{ url_for('notifications.settings') }}">Benachrichtigungen</a>
           <a class="btn btn-ghost" href="{{ url_for('auth.pin_change') }}">PIN ändern</a>
           <form method="post" action="{{ url_for('auth.logout') }}">

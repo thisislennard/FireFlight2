@@ -201,6 +201,16 @@ textarea.input { min-height: 90px; resize: vertical; }
 :root[data-theme="dark"] .auth-logo-light { display: none; }
 :root[data-theme="dark"] .auth-logo-dark { display: block; }
 
+/* Profilbild (app/profile/) -- quadratisch statt rund, konsistent mit dem scharfkantigen
+   Design-System (--radius-* ist überall 0px, s. o.). */
+.avatar { width: 96px; height: 96px; object-fit: cover; border: 1px solid var(--color-divider); background: var(--color-neutral-200); display: block; flex: none; }
+.avatar-placeholder {
+  width: 96px; height: 96px; display: flex; align-items: center; justify-content: center; flex: none;
+  border: 1px solid var(--color-divider); background: var(--color-neutral-200); color: var(--color-neutral-700);
+  font-family: var(--font-heading); font-weight: var(--font-heading-weight); font-size: 30px;
+}
+.profile-header { display: flex; align-items: center; gap: var(--space-4); }
+
 .app-shell { display: flex; min-height: 100vh; }
 
 .sidebar {
