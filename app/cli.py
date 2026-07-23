@@ -85,6 +85,53 @@ def register_cli(app: Flask) -> None:
         click.echo(f"VAPID_PUBLIC_KEY={public_key}")
         click.echo(f"VAPID_PRIVATE_KEY={private_key}")
 
+    @app.cli.group("maintenance")
+    def maintenance_group():
+        """Befehle rund um Wartungsintervalle (app/modules/tickets/)."""
+
+    @maintenance_group.command("check-due")
+    def maintenance_check_due():
+        """Prüft fällige/bald fällige Wartungsregeln und benachrichtigt per Web-Push (Konzeptdokument
+        Abschnitt 10). Diese leichtgewichtige App hat keine eingebaute Zeitsteuerung -- gedacht für
+        einen externen Cron-Job (Host-Cron beim Docker-Deployment, s. docs/roadmap.md)."""
+        from app.core.exceptions import ValidationError
+        from app.modules.tickets.services import rules_due_or_warning
+        from app.notifications.service import send_to_users
+        from app.roles.models import Role
+
+        organization = Organization.query.first()
+        if organization is None:
+            click.echo("Keine Organisation gefunden.")
+            return
+
+        due = rules_due_or_warning(organization.id)
+        if not due:
+            click.echo("Keine fälligen oder bald fälligen Wartungsregeln.")
+            return
+
+        roles = Role.query.filter_by(organization_id=organization.id).all()
+        target_roles = [
+            role for role in roles
+            if role.is_system or any(p.key == "maintenance.manage" for p in role.permissions)
+        ]
+        # Über eindeutige User dedupliziert, damit ein Nutzer mit mehreren berechtigten Rollen nicht
+        # mehrfach dieselbe Push-Nachricht erhält.
+        target_users = list(
+            {u.id: u for role in target_roles for u in role.users if u.is_active_account}.values()
+        )
+
+        titles = ", ".join(rule.title for rule in due)
+        body = f"{len(due)} Wartungsregel(n) fällig oder bald fällig: {titles}"
+        try:
+            send_to_users(target_users, title="Wartung fällig", body=body)
+        except ValidationError as exc:
+            # Kein Traceback für einen erwartbaren Konfigurationszustand (VAPID-Schlüssel fehlen,
+            # z. B. auf einer frischen Installation vor dem ersten `generate-vapid-keys`-Lauf) --
+            # der Cron-Job soll das als klaren, aber sauberen Fehlschlag sehen, kein Absturz.
+            click.echo(f"Web-Push fehlgeschlagen: {exc.message}", err=True)
+            raise SystemExit(1) from exc
+        click.echo(f"{len(due)} Regel(n), {len(target_users)} Nutzer benachrichtigt.")
+
     @app.cli.command("seed-test-data")
     def seed_test_data():
         """Idempotente Test-/Demodaten für lokale Entwicklung/QA -- ein Testuser pro Standardrolle
@@ -100,6 +147,13 @@ def register_cli(app: Flask) -> None:
         from app.rc.services import create_device
         from app.modules.incidents.models import Incident
         from app.modules.incidents.services import add_flight, create_incident
+        from app.modules.tickets.models import MaintenanceRule, Ticket
+        from app.modules.tickets.services import (
+            add_comment,
+            create_maintenance_rule,
+            create_ticket,
+            mark_maintenance_completed,
+        )
         from app.units.models import Unit
         from app.units.services import assign_home_unit, create_unit, set_unit_managers
         from app.wizards.models import Wizard
@@ -242,5 +296,43 @@ def register_cli(app: Flask) -> None:
             click.echo("Beispiel-Einsatz/-Übung mit Flügen angelegt.")
         else:
             click.echo("Beispiel-Einsatz/-Übung existiert bereits.")
+
+        # Beispiel-Ticket + Wartungsregeln (Phase 10) -- eine überfällige und eine erst kürzlich
+        # erledigte Regel, damit beide Anzeigezustände (Fällig/OK) in den Testdaten vorkommen.
+        # `pilot` wird hier bewusst neu aufgelöst statt der Variable aus dem Einsatz-Block oben
+        # wiederzuverwenden -- die ist nur gesetzt, wenn dessen if-Zweig in diesem Lauf tatsächlich
+        # ausgeführt wurde (sonst NameError bei einem erneuten `seed-test-data`-Lauf).
+        equipment_officer_test = _user("test_equipment_officer")
+        if Ticket.query.filter_by(organization_id=organization.id, title="Kamera wackelt (Test)").first() is None:
+            ticket = create_ticket(
+                organization.id, title="Kamera wackelt (Test)",
+                description="Testdaten -- Kamera-Gimbal zeigt Vibrationen im Video.",
+                drone_label="M30T FF Kelkheim", created_by=_user("test_pilot_camera"),
+            )
+            add_comment(ticket, author=equipment_officer_test, body="Wird geprüft (Testdaten).")
+            click.echo("Beispiel-Ticket angelegt.")
+        else:
+            click.echo("Beispiel-Ticket existiert bereits.")
+
+        if MaintenanceRule.query.filter_by(organization_id=organization.id, title="Akku-Sichtprüfung (Test)") \
+                .first() is None:
+            overdue_rule = create_maintenance_rule(
+                organization.id, title="Akku-Sichtprüfung (Test)",
+                description="Testdaten -- absichtlich überfällig.",
+                interval_days=30, warning_days_before=7,
+            )
+            mark_maintenance_completed(
+                overdue_rule, completed_by=equipment_officer_test,
+                completed_at=datetime(2026, 1, 1, tzinfo=timezone.utc), notes="Testdaten.",
+            )
+            ok_rule = create_maintenance_rule(
+                organization.id, title="Propeller-Check (Test)",
+                description="Testdaten -- kürzlich erledigt.",
+                interval_days=90, warning_days_before=14,
+            )
+            mark_maintenance_completed(ok_rule, completed_by=equipment_officer_test, notes="Testdaten.")
+            click.echo("Beispiel-Wartungsregeln angelegt.")
+        else:
+            click.echo("Beispiel-Wartungsregeln existieren bereits.")
 
         click.echo("Testdaten sichergestellt.")

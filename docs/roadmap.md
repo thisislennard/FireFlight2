@@ -317,20 +317,77 @@ erst nach allen Fachmodulen).
   Koordinaten und korrektem CSP-Header, Logbuch zeigt Testdaten-Personen, 403 für Rolle ohne
   `incidents.*`. Testsuite 156/156 grün.
 
-Testsuite insgesamt: 156/156 grün (`pytest`, lokal gegen `fireflight2_test`).
+- **Phase 10 — Tickets + Wartungsintervalle**: zweites Fachmodul über das Modul-Registry-System
+  (`app/modules/tickets/`, nach `app/modules/incidents/` in Phase 9). Konzeptdokument Abschnitt 9
+  rahmt "Technisches Problem melden" als breit zugängliche Dashboard-Funktion (jede Crew), während
+  Abschnitt 10 Gerätewart als Rolle *ohne* Dashboard beschreibt, die stattdessen Tickets verwaltet und
+  Wartungsintervalle pflegt -- deshalb granulare Berechtigungen: `tickets.view`/`tickets.create`
+  (breit vergeben: Dokumentation, Pilot/Kamera, Flugleiter, Einsatzleiter, Einheitsführer, TEL-ELW)
+  vs. `tickets.manage`/`maintenance.view`/`maintenance.manage` (nur Gerätewart).
+
+  **Rollen ohne Dashboard wird zum ersten Mal echt genutzt:** Gerätewart verliert `dashboard.view`
+  und bekommt `landing_endpoint = "tickets.list_tickets"` -- Infrastruktur seit Phase 2 vorbereitet,
+  aber bis jetzt nie mit einer echten Rolle belegt. Dabei zwei weitere latente Lücken gefunden, exakt
+  wie schon bei Phase 9s Modul-Registry-Erstnutzung: (1) der hartkodierte "Dashboard"-Sidebar-Link in
+  `base.html` war nie berechtigungsgeprüft -- für eine Rolle ohne `dashboard.view` wäre er ein
+  garantierter 403-Link gewesen, jetzt hinter `has_permission('dashboard.view')`. (2)
+  `_resolve_role_landing()` prüfte bei einem individuell gesetzten `landing_endpoint` nur, ob sich die
+  URL bauen lässt, nicht ob die Rolle dort überhaupt eine Berechtigung hat -- unproblematisch, solange
+  `landing_endpoint` ausschließlich über den (bereits Permission-gefilterten) Admin-Editor gesetzt
+  wurde, aber `seed_roles()` setzt es jetzt auch, und Berechtigungen können sich danach unabhängig
+  ändern. Fix: für Ziele, die einem `ModuleRegistry.navigation`-Eintrag mit bekannter Berechtigung
+  entsprechen, wird die jetzt geprüft; für alles andere (z. B. ein Admin setzt `administration.audit_log`
+  von Hand als Landing-Ziel) bleibt das alte, permissivere Verhalten erhalten, um einen bestehenden
+  Phase-2-Test nicht zu brechen, der genau das erwartet.
+
+  Datenmodell: `Ticket` (+`TicketComment`, `TicketAttachment`) und `MaintenanceRule` (+`MaintenanceEvent`)
+  in einem Modul, analog zu Incident+Flight in Phase 9. `MaintenanceRule` speichert kein
+  `last_completed_at`-Feld -- wird aus dem jüngsten `MaintenanceEvent` abgeleitet (Fallback
+  `created_at`), damit es nie mit der Ereignis-Historie auseinanderlaufen kann; `next_due_at`/
+  `warning_at`/`is_due`/`is_warning` sind Properties darauf. Migration `31acde4e81fe`.
+
+  Foto-Anhänge für Tickets nutzen dieselbe Magic-Byte-Validierung wie die Profilbilder aus Phase 7
+  (`app/core/utilities/uploads.py`, jetzt generalisiert: `MAX_IMAGE_BYTES` statt
+  `MAX_PROFILE_IMAGE_BYTES` als Basis-Konstante, Alias für Rückwärtskompatibilität mit
+  `tests/test_profile.py`), aber mit zufälligen statt festen Dateinamen, da ein Ticket beliebig viele
+  Anhänge haben kann (kein 1:1-Slot pro Datensatz wie beim Profilbild). Kein neues Docker-Volume nötig
+  -- liegt unter demselben `instance_path`-Volume, das Phase 7 schon eingerichtet hat.
+
+  **Fälligkeits-Push:** `flask maintenance check-due` (neue CLI-Gruppe) prüft fällige/bald fällige
+  Regeln und schickt einmal pro Lauf eine zusammengefasste Push-Nachricht (nicht eine pro Regel, um
+  Spam bei mehreren gleichzeitig fälligen Regeln zu vermeiden) an alle Nutzer mit `maintenance.manage`
+  -Berechtigung (über Rollen dedupliziert, damit niemand mit mehreren berechtigten Rollen doppelt
+  benachrichtigt wird). Diese leichtgewichtige App hat keine eingebaute Zeitsteuerung -- der Befehl ist
+  für einen externen Cron-Job gedacht (Host-Cron beim Docker-Deployment); fehlende VAPID-Konfiguration
+  wird sauber als Fehlermeldung + Exit-Code 1 behandelt statt als Traceback.
+
+  `flask seed-test-data` legt ein Beispiel-Ticket (mit Kommentar) sowie zwei Wartungsregeln an (eine
+  bewusst überfällig, eine kürzlich erledigt -- deckt beide Anzeigezustände ab). Migration gegen die
+  reale lokale Dev-DB verifiziert (Drift-Check zeigt nur die bekannten DJI-Alttabellen, wie bei allen
+  vorherigen Phasen bewusst nicht gedroppt). 32 neue Tests (`tests/test_tickets.py`) -- die
+  `_resolve_role_landing()`-Präzisierung wurde bewusst so eng geschnitten, dass beide betroffenen
+  bestehenden Phase-2-Tests in `tests/test_roles.py` unverändert grün bleiben, keine Testdatei musste
+  angepasst werden. Live gegen den echten Dev-Server verifiziert:
+  Gerätewart-Login landet direkt auf `/tickets/` statt Dashboard (kein Dashboard-Link im Menü mehr),
+  Ticket samt Foto-Anhang über eine Pilot/Kamera-Rolle angelegt (Status ändern dort korrekt mit 403
+  abgewiesen), Wartungsregel von Gerätewart angelegt und als erledigt gemeldet, `flask maintenance
+  check-due` erst mit sauberer Fehlermeldung ohne VAPID-Konfiguration, dann erfolgreich mit echten
+  VAPID-Schlüsseln (3 benachrichtigte Nutzer für die überfällige Testregel). Testsuite 182/182 grün.
+
+Testsuite insgesamt: 182/182 grün (`pytest`, lokal gegen `fireflight2_test`).
 
 ### Als Nächstes (Reihenfolge s. Restrukturierungsplan)
 Hardware-Verifikation auf der echten DJI RC Plus (Phase 4/5 zusammen, s. o.: Push-Rundlauftest im
 normalen Browser zuerst, danach PWA-Installation über `/rc/pair` → `/rc/home` mit einem der beiden
 `seed-test-data`-Testgeräte, Hintergrund-Push, DJI-Pilot-2-Deep-Link-URL ermitteln und in
-Administration → RC-Geräte eintragen) → Phase 10 Tickets + Wartungsintervalle → Phase 11
-RC-PWA-Vollausbau (u. a. das im Konzeptdokument Abschnitt 5.1 beschriebene Zwei-Schritt-Login mit
-Nutzerauswahl vor PIN-Eingabe, sowie der Zwei-Knopf-Ende-Bildschirm aus Abschnitt 5.6) → Phase 12
-RC-Wizard-Inhalte (verdrahtet die generische Wizard-Engine aus Phase 8 mit den echten Flugbuch-Modellen
-aus Phase 9, inkl. eines neuen `location`-Step-Typs für GPS+Zeit-Auto-Erfassung, der die jetzt schon
-vorhandenen `Flight.start_lat/-lon`-Felder befüllt) → Phase 13 fachliche Dashboard-Module (u. a. ein
-Flugbuch-/Karten-Widget auf Basis der Phase-9-Daten) → Phase 14 externe Integrationen (DWD/OpenSky) →
-Phase 15 Tests und Dokumentation.
+Administration → RC-Geräte eintragen) → Phase 11 RC-PWA-Vollausbau (u. a. das im Konzeptdokument
+Abschnitt 5.1 beschriebene Zwei-Schritt-Login mit Nutzerauswahl vor PIN-Eingabe, sowie der
+Zwei-Knopf-Ende-Bildschirm aus Abschnitt 5.6) → Phase 12 RC-Wizard-Inhalte (verdrahtet die generische
+Wizard-Engine aus Phase 8 mit den echten Flugbuch-Modellen aus Phase 9, inkl. eines neuen
+`location`-Step-Typs für GPS+Zeit-Auto-Erfassung, der die vorhandenen `Flight.start_lat/-lon`-Felder
+befüllt) → Phase 13 fachliche Dashboard-Module (u. a. ein Flugbuch-/Karten-Widget auf Basis der
+Phase-9-Daten und ein "Technisches Problem melden"-Widget auf Basis von Phase 10) → Phase 14 externe
+Integrationen (DWD/OpenSky) → Phase 15 Tests und Dokumentation.
 
 ---
 

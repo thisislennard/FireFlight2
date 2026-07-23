@@ -38,6 +38,9 @@ def seed_roles(organization_id: uuid.UUID) -> dict[str, Role]:
                 icon=entry.get("icon"),
                 sort_order=entry.get("sort_order", 0),
                 is_system=entry.get("is_system", False),
+                # Nur bei Erstanlage gesetzt, wie alle anderen Felder hier außer permissions (s.
+                # Docstring) -- ein Admin könnte landing_endpoint später bewusst ändern.
+                landing_endpoint=entry.get("landing_endpoint", "dashboards.view"),
             )
             db.session.add(role)
             existing[entry["key"]] = role

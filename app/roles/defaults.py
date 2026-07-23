@@ -37,33 +37,41 @@ DEFAULT_ROLES = [
     {
         # Rollenname deutet direkt auf die Zuständigkeit fürs Flugbuch hin.
         "key": "documentation", "name": "Dokumentation", "icon": "file-text", "sort_order": 10,
-        "permissions": ["dashboard.view", "incidents.view", "incidents.edit"],
+        "permissions": ["dashboard.view", "incidents.view", "incidents.edit", "tickets.view", "tickets.create"],
     },
     {
         "key": "unit_leader", "name": "Einheitsführer", "icon": "shield", "sort_order": 20,
-        "permissions": ["dashboard.view", "users.view", "incidents.view"],
+        "permissions": ["dashboard.view", "users.view", "incidents.view", "tickets.view", "tickets.create"],
     },
     {
         # Pilot/Kamera-Crew ist laut Konzeptdokument (Abschnitt 5.2-5.5) diejenige, die Flüge am
-        # RC Plus selbst erfasst -- braucht daher auch am Desktop Bearbeitungsrechte.
+        # RC Plus selbst erfasst -- braucht daher auch am Desktop Bearbeitungsrechte. Meldet laut
+        # Abschnitt 9 ("Technisches Problem") auch technische Probleme.
         "key": "pilot_camera", "name": "Pilot/Kamera", "icon": "video", "sort_order": 30,
-        "permissions": ["dashboard.view", "incidents.view", "incidents.edit"],
+        "permissions": ["dashboard.view", "incidents.view", "incidents.edit", "tickets.view", "tickets.create"],
     },
     {
         "key": "flight_leader", "name": "Flugleiter", "icon": "navigation", "sort_order": 40,
-        "permissions": ["dashboard.view", "incidents.view", "incidents.edit"],
+        "permissions": ["dashboard.view", "incidents.view", "incidents.edit", "tickets.view", "tickets.create"],
     },
     {
         "key": "incident_commander", "name": "Einsatzleiter/SBI", "icon": "radio", "sort_order": 50,
-        "permissions": ["dashboard.view", "users.view", "incidents.view", "incidents.edit"],
+        "permissions": [
+            "dashboard.view", "users.view", "incidents.view", "incidents.edit", "tickets.view", "tickets.create",
+        ],
     },
     {
+        # Konzeptdokument Abschnitt 10: "Bestimmte Rollen (z. B. Gerätewarte) haben kein klassisches
+        # Dashboard, sondern nur ein Ticket-System [...] können außerdem Wartungsintervalle setzen".
+        # Erste Rolle, die tatsächlich `landing_endpoint` nutzt statt des Dashboard-Defaults --
+        # Infrastruktur seit Phase 2 vorbereitet, bisher aber nie mit einem echten Ziel belegt.
         "key": "equipment_officer", "name": "Gerätewart", "icon": "tool", "sort_order": 60,
-        "permissions": ["dashboard.view"],
+        "permissions": ["tickets.view", "tickets.create", "tickets.manage", "maintenance.view", "maintenance.manage"],
+        "landing_endpoint": "tickets.list_tickets",
     },
     {
         "key": "tel_elw", "name": "TEL-ELW", "icon": "truck", "sort_order": 70,
-        "permissions": ["dashboard.view", "incidents.view"],
+        "permissions": ["dashboard.view", "incidents.view", "tickets.view", "tickets.create"],
     },
     {
         # is_system=True -> automatisch alle Berechtigungen (app/core/security/permissions.py),

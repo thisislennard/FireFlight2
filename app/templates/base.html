@@ -16,7 +16,9 @@
         <span class="sidebar-brand-text">FireFlight2</span>
       </div>
       <nav class="sidebar-nav">
+        {% if has_permission('dashboard.view') %}
         <a href="{{ url_for('dashboards.view') }}" class="sidebar-link">Dashboard</a>
+        {% endif %}
         {% for entry in module_navigation %}
         {% if entry.permission is none or has_permission(entry.permission) %}
         <a href="{{ url_for(entry.endpoint) }}" class="sidebar-link">{{ entry.label }}</a>

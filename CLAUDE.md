@@ -8,7 +8,7 @@ v1 bleibt unangetastet produktiv unter `G:\5 GitHub\FireFlight`. Volle Architekt
 **Vollständige Struktur-/Architektur-Vorgabe des Nutzers:** `docs/spec-struktur.md` (wörtliche Spezifikation vom 2026-07-19, Ausbaustufe 1). **Vollständige Design-Vorgabe:** `docs/spec-design.md` (Design-Tokens, Komponenten-CSS, Begründungen). **Konzeptvorgabe Ausbaustufe 2:** `fireflight2-konzept-struktur.md` (Fachmodule + PWA/Push, vom Nutzer 2026-07-23 geliefert) — daraus abgeleiteter Restrukturierungs-/Phasenplan wurde vom Nutzer freigegeben, liegt nicht im Repo. **Umsetzungsstand/Roadmap:** `docs/roadmap.md` — was aus welcher Ausbaustufe bereits implementiert und live verifiziert ist, was noch offen ist, was bewusst verschoben wurde. Vor jeder neuen Session zuerst dort nachsehen. Diese Datei hier fasst zusammen und verweist dorthin — bei Detailfragen zuerst dort nachsehen.
 
 ## Umsetzungsstand
-Ausbaustufe 1 aus `docs/spec-struktur.md` ist **implementiert und lokal live verifiziert** (venv + lokales PostgreSQL, da auf dieser Maschine kein Docker installiert ist): Datenmodell, Auth, Rollen/Berechtigungen, Dashboards, Modul-Registry, Administration, CLI-Init, Templates/Design. Ausbaustufe 2 (Fachmodule + PWA/Push aus `fireflight2-konzept-struktur.md`) ist **in Arbeit** — Phase 1 (Modul-Registry-Bootstrap), Phase 2 (Rollen ohne Dashboard), Phase 3 (PIN-Login-Migration, Passwort komplett ersetzt), Phase 4 (Notifications-Kern, Web-Push), Phase 5 (RC-Hardware-Feasibility-Spike, reduzierter Umfang), Phase 6 (Drohneneinheiten), Phase 7 (Nutzerprofil-Erweiterung inkl. scharf geschaltetem RC-Qualifikationsfilter), Phase 8 (generische Wizard-Engine, noch ohne echte Fachinhalte) und Phase 9 (Einsatz/Übung + Flugbuch mit Karte, erstes echtes Fachmodul über das Modul-Registry-System) sind umgesetzt und getestet, weitere 6 Phasen (Tickets/Wartung, RC-PWA-Vollausbau, RC-Wizard-Inhalte, Dashboard-Module, externe Integrationen, Tests/Doku) stehen aus. Die eigentliche Hardware-Verifikation von Phase 4/5 (echter Browser-/RC-Push-Rundlauf auf der realen DJI RC Plus) ist noch offen — nur Code + automatisierte Tests + `curl`-Rundlauf gegen den Dev-Server sind verifiziert. Die zuvor implementierte DJI-FlightHub-2-Integration wurde am 2026-07-23 auf Nutzerwunsch **komplett wieder entfernt** (kein Fachmodul/keine Integration soll den Kern ablenken, bevor dieser fertig steht) — Details im Verlauf unten. Details, offene Punkte und nächste Schritte: `docs/roadmap.md`.
+Ausbaustufe 1 aus `docs/spec-struktur.md` ist **implementiert und lokal live verifiziert** (venv + lokales PostgreSQL, da auf dieser Maschine kein Docker installiert ist): Datenmodell, Auth, Rollen/Berechtigungen, Dashboards, Modul-Registry, Administration, CLI-Init, Templates/Design. Ausbaustufe 2 (Fachmodule + PWA/Push aus `fireflight2-konzept-struktur.md`) ist **in Arbeit** — Phase 1 (Modul-Registry-Bootstrap), Phase 2 (Rollen ohne Dashboard), Phase 3 (PIN-Login-Migration, Passwort komplett ersetzt), Phase 4 (Notifications-Kern, Web-Push), Phase 5 (RC-Hardware-Feasibility-Spike, reduzierter Umfang), Phase 6 (Drohneneinheiten), Phase 7 (Nutzerprofil-Erweiterung inkl. scharf geschaltetem RC-Qualifikationsfilter), Phase 8 (generische Wizard-Engine, noch ohne echte Fachinhalte), Phase 9 (Einsatz/Übung + Flugbuch mit Karte, erstes echtes Fachmodul über das Modul-Registry-System) und Phase 10 (Tickets + Wartungsintervalle, Gerätewart als erste Rolle ohne Dashboard) sind umgesetzt und getestet, weitere 5 Phasen (RC-PWA-Vollausbau, RC-Wizard-Inhalte, Dashboard-Module, externe Integrationen, Tests/Doku) stehen aus. Die eigentliche Hardware-Verifikation von Phase 4/5 (echter Browser-/RC-Push-Rundlauf auf der realen DJI RC Plus) ist noch offen — nur Code + automatisierte Tests + `curl`-Rundlauf gegen den Dev-Server sind verifiziert. Die zuvor implementierte DJI-FlightHub-2-Integration wurde am 2026-07-23 auf Nutzerwunsch **komplett wieder entfernt** (kein Fachmodul/keine Integration soll den Kern ablenken, bevor dieser fertig steht) — Details im Verlauf unten. Details, offene Punkte und nächste Schritte: `docs/roadmap.md`.
 
 ## Warum Neuentwicklung statt Weiterentwicklung von v1
 - **Technische Basis modernisieren** — weg vom frameworklosen Python-Stdlib-HTTP-Server (`http.server.ThreadingHTTPServer`) aus v1
@@ -66,6 +66,54 @@ Vollständige Liste: `FireFlight/README.md`, Abschnitt „Funktionen". Kurzfassu
 - **Passwort-Hashing** in v1: PBKDF2-HMAC-SHA256, 120.000 Iterationen, 16-Byte-Salt — als Mindeststandard falls kein Framework-Default (z. B. Flask-Bcrypt) gewählt wird
 
 ## Verlauf / Planungsentscheidungen
+### 2026-07-23 (Fortsetzung) — Phase 10: Tickets + Wartungsintervalle umgesetzt
+Auf "ja mach weiter" direkt im Anschluss an Phase 9 begonnen. Vollständige technische Details in
+`docs/roadmap.md` Abschnitt „Status: Ausbaustufe 2". Zweites Fachmodul über das Modul-Registry-System
+(`app/modules/tickets/`) -- Tickets sind bewusst breit zugänglich (Konzeptdokument Abschnitt 9 rahmt
+"Technisches Problem melden" als Dashboard-Funktion für jede Crew), Verwalten/Wartung ist
+Gerätewart-Domäne (Abschnitt 10: "Rollen ohne Dashboard").
+
+**Gerätewart wird die erste Rolle, die tatsächlich kein Dashboard hat** -- die Infrastruktur dafür
+(`Role.landing_endpoint`, `roles/no_landing.html`) stammt aus Phase 2, wurde aber bis jetzt nie mit
+einer echten Rolle durchgespielt. Dabei zwei weitere latente Lücken gefunden (exakt dasselbe Muster
+wie die zwei Navigation-Bugs aus Phase 9 -- Infrastruktur, die beim Bauen plausibel aussah, aber nie
+mit einem echten Fall getestet wurde): (1) der "Dashboard"-Link in der Sidebar war nie
+berechtigungsgeprüft, jetzt hinter `has_permission('dashboard.view')`. (2) `_resolve_role_landing()`
+(`app/roles/routes.py`) prüfte bei einem individuellen `landing_endpoint` nur, ob sich die Ziel-URL
+bauen lässt, nicht ob die Rolle dort eine Berechtigung hat -- unproblematisch, solange
+`landing_endpoint` nur über den bereits Permission-gefilterten Admin-Editor gesetzt wurde, aber
+`seed_roles()` setzt es jetzt auch bei der Erstanlage, und Berechtigungen ändern sich danach
+unabhängig. Fix so eng wie möglich gehalten: nur für Ziele mit einem bekannten
+`ModuleRegistry.navigation`-Eintrag wird die Berechtigung geprüft; für alles andere (z. B.
+`administration.audit_log` von Hand als Landing-Ziel gesetzt) bleibt das alte, permissivere Verhalten
+-- ein bestehender Phase-2-Test (`test_role_with_custom_landing_endpoint_redirects_there`) verlangt
+genau das und sollte nicht angepasst werden müssen, nur weil ein neuer Anwendungsfall dazukam.
+
+Ticket-Fotoanhänge nutzen dieselbe Magic-Byte-Validierung wie Profilbilder aus Phase 7
+(`app/core/utilities/uploads.py` generalisiert: `MAX_IMAGE_BYTES` als neue Basis-Konstante,
+`MAX_PROFILE_IMAGE_BYTES` bleibt als Alias erhalten, damit `tests/test_profile.py` unverändert bleibt),
+aber mit zufälligen statt festen Dateinamen (mehrere Anhänge pro Ticket möglich). Kein neues
+Docker-Volume nötig, liegt unter demselben `instance_path`-Volume aus Phase 7.
+
+`flask maintenance check-due` (neue CLI-Gruppe) ist der Fälligkeits-Check aus Konzeptdokument
+Abschnitt 10 -- diese App hat keine eingebaute Zeitsteuerung, daher für externen Cron gedacht. Schickt
+eine zusammengefasste Nachricht pro Lauf (nicht eine pro fälliger Regel), an alle Nutzer mit
+`maintenance.manage`-Berechtigung, über Rollen dedupliziert.
+
+**Live verifiziert** gegen den echten Dev-Server: Login als Gerätewart landet direkt auf `/tickets/`
+(kein Dashboard-Link mehr im Menü), Ticket samt Fotoanhang über eine Pilot/Kamera-Rolle angelegt
+(Statusänderung dort korrekt mit 403 abgewiesen, nur Gerätewart darf), Wartungsregel angelegt und als
+erledigt gemeldet, `flask maintenance check-due` erst mit sauberer Fehlermeldung ohne
+VAPID-Konfiguration, danach erfolgreich mit echten Schlüsseln (3 benachrichtigte Nutzer). **Beim
+Live-Testen selbst ein Fehler gemacht:** ein zu grobes Regex beim Auslesen der aktuell gesetzten
+Rollen-Berechtigungen aus der Editor-Seite lieferte eine leere Liste, wodurch ein Test-Speichervorgang
+versehentlich alle Gerätewart-Berechtigungen entfernt hat -- durch erneuten `flask init-fireflight`-Lauf
+sofort repariert (`seed_roles()` setzt Berechtigungen bei jedem Lauf zurück, s. Phase-2-Doku), keine
+Auswirkung auf Code oder Tests. Testsuite 182/182 grün (32 neue Tests in `tests/test_tickets.py`;
+`tests/test_roles.py` blieb dabei bewusst unverändert -- die präzisierte Landing-Logik wurde so eng
+geschnitten, dass beide betroffenen bestehenden Tests dort ohne Anpassung weiter grün sind). Migration
+`31acde4e81fe` gegen die reale Dev-DB angewendet, Drift-Check zeigt nur die bekannten DJI-Alttabellen.
+
 ### 2026-07-23 (Fortsetzung) — Phase 9: Einsatz/Übung + Flugbuch (mit Karte) umgesetzt
 Auf "ja dann weiter" direkt im Anschluss an Phase 8 begonnen. Vor der Umsetzung zwei Rückfragen
 gestellt, da das Konzeptdokument (Abschnitt 6/7) Einsatz/Übung und Logbuch nur sehr knapp beschreibt

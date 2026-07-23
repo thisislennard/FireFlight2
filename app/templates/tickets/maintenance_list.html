@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}Wartung – FireFlight2{% endblock %}
+{% block page_title %}Wartung{% endblock %}
+{% block content %}
+<div class="page-header">
+  <span></span>
+  {% if has_permission('maintenance.manage') %}
+  <a class="btn btn-primary" href="{{ url_for('tickets.maintenance_new') }}">Neue Wartungsregel</a>
+  {% endif %}
+</div>
+<table class="table">
+  <thead><tr><th>Titel</th><th>Intervall</th><th>Fällig am</th><th>Status</th><th></th></tr></thead>
+  <tbody>
+    {% for rule in rules %}
+    <tr>
+      <td><a href="{{ url_for('tickets.maintenance_detail', rule_id=rule.id) }}">{{ rule.title }}</a></td>
+      <td>Alle {{ rule.interval_days }} Tage</td>
+      <td>{{ to_local(rule.next_due_at).strftime("%d.%m.%Y") }}</td>
+      <td>
+        {% if not rule.is_active %}<span class="tag tag-outline">Deaktiviert</span>
+        {% elif rule.is_due %}<span class="tag tag-accent">Fällig</span>
+        {% elif rule.is_warning %}<span class="tag tag-neutral">Bald fällig</span>
+        {% else %}<span class="tag tag-neutral">OK</span>{% endif %}
+      </td>
+      <td>
+        {% if has_permission('maintenance.manage') %}
+        <form method="post" action="{{ url_for('tickets.maintenance_toggle_active', rule_id=rule.id) }}">
+          <button type="submit" class="btn btn-ghost">{{ "Deaktivieren" if rule.is_active else "Aktivieren" }}</button>
+        </form>
+        {% endif %}
+      </td>
+    </tr>
+    {% else %}
+    <tr><td colspan="5" class="text-muted">Noch keine Wartungsregeln.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

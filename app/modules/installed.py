@@ -9,7 +9,9 @@ from __future__ import annotations
 
 from app.modules.base import FireFlightModule
 from app.modules.incidents.module import IncidentsModule
+from app.modules.tickets.module import TicketsModule
 
 INSTALLED_MODULES: list[FireFlightModule] = [
     IncidentsModule(),
+    TicketsModule(),
 ]

@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}Tickets – FireFlight2{% endblock %}
+{% block page_title %}Tickets{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <a class="btn btn-ghost" href="{{ url_for('tickets.list_tickets') }}">Alle</a>
+    {% for status in statuses %}
+    <a class="btn btn-ghost" href="{{ url_for('tickets.list_tickets', status=status) }}">
+      {{ {"open": "Offen", "in_progress": "In Bearbeitung", "closed": "Geschlossen"}[status] }}
+    </a>
+    {% endfor %}
+  </div>
+  {% if has_permission('tickets.create') %}
+  <a class="btn btn-primary" href="{{ url_for('tickets.ticket_new') }}">Neues Ticket</a>
+  {% endif %}
+</div>
+<table class="table">
+  <thead><tr><th>Titel</th><th>Drohne</th><th>Status</th><th>Erstellt</th></tr></thead>
+  <tbody>
+    {% for ticket in tickets %}
+    <tr>
+      <td><a href="{{ url_for('tickets.ticket_detail', ticket_id=ticket.id) }}">{{ ticket.title }}</a></td>
+      <td>{{ ticket.drone_label or "–" }}</td>
+      <td>
+        {% if ticket.status == "open" %}<span class="tag tag-accent">Offen</span>
+        {% elif ticket.status == "in_progress" %}<span class="tag tag-neutral">In Bearbeitung</span>
+        {% else %}<span class="tag tag-outline">Geschlossen</span>{% endif %}
+      </td>
+      <td>{{ to_local(ticket.created_at).strftime("%d.%m.%Y %H:%M") }}</td>
+    </tr>
+    {% else %}
+    <tr><td colspan="4" class="text-muted">Keine Tickets.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

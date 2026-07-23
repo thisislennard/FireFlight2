@@ -35,19 +35,29 @@ def activate(role_id):
 def _resolve_role_landing(role) -> str:
     """Ziel-URL nach Rollenaktivierung. `dashboards.view` bleibt der Default, wird aber nur genutzt,
     wenn die Rolle auch `dashboard.view` besitzt -- sonst gäbe es einen rohen 403 statt einer
-    verständlichen Meldung (z. B. künftig Gerätewart ohne Dashboard). Ein abweichend konfiguriertes
-    `landing_endpoint` gilt als vom Admin-Editor bereits auf die Rollen-Permissions gefiltert (s.
-    ModuleRegistry.navigation) und wird direkt übernommen; ein BuildError fängt nur den Fall ab, dass
-    das Ziel (z. B. ein entferntes Modul) nicht mehr existiert."""
+    verständlichen Meldung (z. B. Gerätewart ohne Dashboard, s. app/roles/defaults.py).
+
+    Für ein abweichend konfiguriertes `landing_endpoint`: wenn es zu einem `ModuleRegistry.navigation`
+    -Eintrag mit bekannter Berechtigung gehört, wird die genau geprüft -- die Prüfung nur beim
+    *Setzen* im Admin-Editor reicht nicht, weil `landing_endpoint` auch über `seed_roles()` gesetzt
+    sein kann und sich Berechtigungen danach unabhängig ändern können (z. B. per Admin-Editor
+    entzogen werden), ohne dass `landing_endpoint` mitgeändert wird. Für Ziele außerhalb der
+    Modul-Registry (z. B. ein Admin setzt `administration.audit_log` als Landing-Ziel) gibt es keine
+    generische Möglichkeit, die zuständige Berechtigung zu ermitteln -- dort bleibt es beim
+    ursprünglichen Verhalten (nur Buildbarkeit prüfen, dem Admin vertrauen)."""
     endpoint = role.landing_endpoint or "dashboards.view"
     if endpoint == "dashboards.view":
         if role_has_permission(role, "dashboard.view"):
             return url_for("dashboards.view")
     else:
-        try:
-            return url_for(endpoint)
-        except BuildError:
-            pass
+        from app.modules.registry import module_registry
+
+        entry = next((e for e in module_registry.navigation if e.endpoint == endpoint), None)
+        if entry is None or entry.permission is None or role_has_permission(role, entry.permission):
+            try:
+                return url_for(endpoint)
+            except BuildError:
+                pass
     return url_for("roles.no_landing")
 
 
