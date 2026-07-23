@@ -11,7 +11,7 @@ def test_login_writes_audit_log(client, admin_user):
 
 
 def test_failed_login_writes_audit_log(client, admin_user):
-    login(client, password="falsch")
+    login(client, pin="0007")
     from app.audit.models import AuditLog
 
     entry = AuditLog.query.filter_by(action="auth.login_failed").first()

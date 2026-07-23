@@ -29,12 +29,14 @@
   {% elif widget.widget_type == "warning" %}
     <div class="card-title" style="color: var(--color-accent-700);">{{ widget.title or "Warnung" }}</div>
     <p class="card-body">{{ widget.config.get("text", "") }}</p>
-  {% elif widget.widget_type == "dji_integration_status" %}
-    <div class="card-title">DJI-Integrationsstatus</div>
-    <p class="card-body">Details siehe <a href="{{ url_for('dji_flighthub.status') }}">Integrationen</a>.</p>
   {% else %}
-    <div class="card-title text-muted">{{ widget.title or "Platzhalter" }}</div>
-    <p class="card-body text-muted">Noch kein Inhalt konfiguriert.</p>
+    {% set definition = widget_definition(widget.widget_type) %}
+    {% if definition and definition.template %}
+      {% include definition.template %}
+    {% else %}
+      <div class="card-title text-muted">{{ widget.title or "Platzhalter" }}</div>
+      <p class="card-body text-muted">Noch kein Inhalt konfiguriert.</p>
+    {% endif %}
   {% endif %}
 
   {% if editable %}

@@ -8,7 +8,7 @@
   <div class="field"><label>Benutzername</label><input class="input" type="text" name="username" required></div>
   <div class="field"><label>E-Mail</label><input class="input" type="email" name="email" required></div>
   <div class="field"><label>Anzeigename</label><input class="input" type="text" name="display_name" required></div>
-  <div class="field"><label>Initialpasswort</label><input class="input" type="password" name="password" required></div>
+  <div class="field"><label>Initial-PIN (4 Ziffern)</label><input class="input" type="password" name="pin" inputmode="numeric" pattern="[0-9]*" maxlength="4" required></div>
   {% else %}
   <div class="field"><label>Benutzername</label><input class="input" type="text" value="{{ user.username }}" disabled></div>
   <div class="field"><label>E-Mail</label><input class="input" type="email" name="email" value="{{ user.email }}"></div>
@@ -24,6 +24,14 @@
       {% endfor %}
     </div>
   </div>
+  {% if user.requires_admin_unlock %}
+  <div class="field">
+    <div class="flash flash-error">Konto ist nach mehrfacher Sperre gesperrt und benötigt eine manuelle Entsperrung.</div>
+    <form method="post" action="{{ url_for('administration.user_unlock', user_id=user.id) }}">
+      <button type="submit" class="btn btn-secondary">Sperre aufheben</button>
+    </form>
+  </div>
+  {% endif %}
   {% endif %}
   <div class="form-actions">
     <button type="submit" class="btn btn-primary">Speichern</button>

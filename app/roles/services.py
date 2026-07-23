@@ -9,8 +9,10 @@ from app.roles.models import Permission, Role
 
 
 def seed_permissions() -> dict[str, Permission]:
+    from app.modules.registry import module_registry
+
     existing = {p.key: p for p in Permission.query.all()}
-    for key, description in DEFAULT_PERMISSIONS:
+    for key, description in DEFAULT_PERMISSIONS + module_registry.permissions:
         if key not in existing:
             perm = Permission(key=key, description=description)
             db.session.add(perm)

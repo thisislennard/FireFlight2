@@ -1,14 +1,13 @@
 # FireFlight2
 
 Zentrale Arbeits-, Informations- und Dokumentationsplattform für den Drohneneinsatz einer Feuerwehr.
-FireFlight2 verbindet Informationen aus **DJI FlightHub 2** mit eigenen Eingaben und später ergänzten
-Fachmodulen zu gemeinsamen Ansichten, statt Nutzer zwischen „DJI-Daten“ und „FireFlight2-Daten“
-wechseln zu lassen.
 
-Dies ist die von Grund auf neu gebaute Ausbaustufe 1: ein sauberer, stabiler und erweiterbarer
-Anwendungskern (Auth, Rollen/Berechtigungen, rollenbasierte Dashboards, Modul-Registry,
-DJI-Integrationsgerüst). Vollständige fachliche Module (Einsatzverwaltung, Flugbuch,
-Geräteverwaltung, …) sind bewusst noch nicht enthalten — siehe [`docs/roadmap.md`](docs/roadmap.md).
+Dies ist die von Grund auf neu gebaute Ausbaustufe 1 (in Ausbaustufe 2 erweitert): ein sauberer,
+stabiler und erweiterbarer Anwendungskern (Auth, Rollen/Berechtigungen, rollenbasierte Dashboards,
+Modul-Registry). Externe Integrationen (z. B. DJI FlightHub 2) sind aktuell bewusst **nicht**
+enthalten — der Fokus liegt zunächst auf einer sauberen Kern-Basis, siehe [`docs/roadmap.md`](docs/roadmap.md).
+Vollständige fachliche Module (Einsatzverwaltung, Flugbuch, Geräteverwaltung, …) sind ebenfalls noch
+nicht enthalten.
 
 ## Architekturübersicht
 
@@ -16,22 +15,6 @@ FireFlight2 ist ein **modularer Monolith**: eine Flask-Anwendung, ein gemeinsame
 interne Bereiche, eine gemeinsame PostgreSQL-Datenbank. Schichtung: Routes → Services → Repositories/ORM
 → SQLAlchemy → PostgreSQL. Spätere Fachmodule docken über ein internes Modul-Registry-System an
 (`app/modules/`), ohne den Kern umzubauen.
-
-```text
-DJI FlightHub 2
-        │
-        ▼
-DJI-Integrationsschicht (app/integrations/dji_flighthub/)
-        │
-        ▼
-Interne Datenmodelle (ExternalReference u. a.)
-        │
-        ▼
-Services und Fachmodule
-        │
-        ▼
-Dashboards und Benutzeroberfläche
-```
 
 Vollständige Architektur-/Design-Vorgabe und Entscheidungen: [`docs/spec-struktur.md`](docs/spec-struktur.md),
 [`docs/spec-design.md`](docs/spec-design.md), [`docs/architecture.md`](docs/architecture.md).
@@ -45,13 +28,12 @@ FireFlight2/
 │   ├── config.py            # Dev-/Test-/Prod-Konfiguration
 │   ├── extensions.py        # SQLAlchemy, Migrate, Login, CSRF, Limiter
 │   ├── cli.py                # flask init-fireflight
-│   ├── core/                 # Basis-Mixins, Security (Passwort/Berechtigungen), Exceptions, Zeitzone
-│   ├── auth/                  # User-Modell, Login/Logout, Passwort-Hashing
+│   ├── core/                 # Basis-Mixins, Security (PIN/Berechtigungen), Exceptions, Zeitzone
+│   ├── auth/                  # User-Modell, Login/Logout, PIN-Hashing
 │   ├── roles/                  # Role/Permission-Modelle, Standardrollen, Rollenauswahl/-wechsel
 │   ├── organizations/           # Organization-Modell (Single-Tenant in Ausbaustufe 1)
 │   ├── dashboards/                # Dashboard/Widget-Modelle, Widget-Registry
 │   ├── modules/                    # FireFlightModule-Basisklasse + Registry für spätere Fachmodule
-│   ├── integrations/dji_flighthub/  # Abstrakter Client, Mock-Connector, Sync-Service
 │   ├── administration/               # Benutzer-/Rollen-/Dashboard-/Org-/Audit-Verwaltung
 │   ├── audit/                         # Audit-Log-Modell + Service
 │   ├── templates/, static/             # Jinja2-Templates, CSS-Design-System, HTMX, Archivo-Font
@@ -77,7 +59,7 @@ FireFlight2/
 
 ```bash
 cp .env.example .env
-# .env anpassen: SECRET_KEY, POSTGRES_PASSWORD, FIREFLIGHT_ADMIN_PASSWORD
+# .env anpassen: SECRET_KEY, POSTGRES_PASSWORD, FIREFLIGHT_ADMIN_PIN
 docker compose up -d --build
 docker compose exec fireflight2-app flask init-fireflight
 ```
@@ -124,10 +106,10 @@ $env:TEST_DATABASE_URL = "postgresql://fireflight2:fireflight2-local@localhost:5
 pytest
 ```
 
-Deckt u. a. ab: Login-Erfolg/-Fehlschlag, deaktivierte Konten, Konto-Sperre, Rollenauswahl/-wechsel,
-Berechtigungsprüfung, Rollen-/Berechtigungs-Verwaltung, Schutz des letzten Administrators,
-Dashboard-Erstellung, Widget-Verwaltung, Idempotenz von `init-fireflight`, simulierte
-DJI-Synchronisierung, Audit-Log-Einträge.
+Deckt u. a. ab: Login-Erfolg/-Fehlschlag, deaktivierte Konten, Konto-Sperre (inkl. progressiver
+Eskalation), PIN-Wechsel, Rollenauswahl/-wechsel, Berechtigungsprüfung, Rollen-/Berechtigungs-Verwaltung,
+Schutz des letzten Administrators, Dashboard-Erstellung, Widget-Verwaltung, Modul-Registry-Bootstrap,
+Idempotenz von `init-fireflight`, Audit-Log-Einträge.
 
 ## Umgebungsvariablen
 
@@ -138,9 +120,7 @@ DJI-Synchronisierung, Audit-Log-Einträge.
 | `DATABASE_URL` | PostgreSQL-Verbindungsstring |
 | `TIMEZONE` | Anzeige-Zeitzone, Standard `Europe/Berlin` |
 | `SESSION_COOKIE_SECURE` | `true` für HTTPS-Betrieb (Standard), `false` nur für lokales HTTP |
-| `FIREFLIGHT_ADMIN_USERNAME` / `_EMAIL` / `_PASSWORD` | Für `flask init-fireflight`: erster Administrator |
-| `DJI_FLIGHTHUB_ENABLED` | Globaler Not-Aus-Schalter (Default `true`) — auf `false` setzen, um die echte API org-übergreifend zu sperren, unabhängig vom DB-Zustand |
-| `DJI_FLIGHTHUB_BASE_URL` / `_ORG_KEY` | Optionaler Deployment-Default für DJI-Zugangsdaten. Normalerweise werden Organization Key + Basis-URL direkt über die Administrationsoberfläche (`/administration/integrations/dji-flighthub/`) gepflegt und in `integration_configs.settings` gespeichert — dort eingetragene Werte haben Vorrang vor diesen Env-Variablen. Projekt-UUID wird nicht mehr manuell eingetragen, sondern automatisch über die API entdeckt (eine Organisation kann mehrere Projekte haben). **Wichtig:** `https://fh.dji.com` ist nachweislich nur die Web-Oberfläche, keine API — die echte, account-/regionsspezifische Basis-URL muss per Browser-DevTools ermittelt werden (s. `docs/dji-flighthub2-api.md`). Ohne gesetzte Zugangsdaten **und** DSGVO-Bestätigung in der Oberfläche wird immer der Demo-Connector verwendet, nie echte Daten abgerufen |
+| `FIREFLIGHT_ADMIN_USERNAME` / `_EMAIL` / `_PIN` | Für `flask init-fireflight`: erster Administrator, `_PIN` ist die 4-stellige Login-PIN |
 
 ## Standardrollen
 
@@ -152,7 +132,7 @@ Administrator kann nicht entfernt/deaktiviert werden.
 
 ## Berechtigungssystem
 
-Granulares Permission-System (`dashboard.view`, `users.edit`, `integrations.sync`, …, siehe
+Granulares Permission-System (`dashboard.view`, `users.edit`, `roles.assign_permissions`, …, siehe
 `app/roles/defaults.py`), geprüft über den `@permission_required(...)`-Decorator **und** zusätzlich
 in Services über `ensure_permission(...)` (`app/core/security/permissions.py`) — nie nur clientseitig
 über ausgeblendete Buttons.
@@ -167,18 +147,9 @@ Fachmodul registriert.
 ## Dashboard-System
 
 Jede Rolle hat ein eigenes, datenbankbasiertes Dashboard (`app/dashboards/`) aus Widgets in einem
-12-Spalten-Raster. Neun Basiswidgets stehen zur Verfügung (Überschrift, Informationstext,
-Schnellzugriff, Statusanzeige, Kennzahl, Hinweis, Warnung, Platzhalter, DJI-Integrationsstatus).
-Administratoren bearbeiten Dashboards beliebiger Rollen unter „Administration → Rollen → Bearbeiten“.
-
-## DJI-FlightHub-2-Integration
-
-Abstrakte Anbindung (`app/integrations/dji_flighthub/`): `DJIFlightHubClient` definiert die
-Schnittstelle, `MockDJIFlightHubClient` liefert Testdaten. Fachmodule sprechen nie direkt mit der
-DJI-API, sondern nur über diese Schicht. Eine echte Anbindung an die DJI-Business-OpenAPI ist noch
-nicht umgesetzt (keine bestätigten Zugangsdaten/Endpunkte) — Referenz für die spätere Implementierung:
-`../FireFlight/docs/FLIGHTHUB2_API.md` (Recherche aus FireFlight v1). Der Administrationsbereich zeigt
-Integrationsstatus, Synchronisationshistorie und bietet eine simulierte Synchronisierung.
+12-Spalten-Raster. Acht Basiswidgets stehen zur Verfügung (Überschrift, Informationstext,
+Schnellzugriff, Statusanzeige, Kennzahl, Hinweis, Warnung, Platzhalter). Administratoren bearbeiten
+Dashboards beliebiger Rollen unter „Administration → Rollen → Bearbeiten“.
 
 ## Backup
 

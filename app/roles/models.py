@@ -51,6 +51,10 @@ class Role(UUIDPrimaryKeyMixin, TimestampMixin, db.Model):
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     is_system: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    # Ziel-Endpoint nach Rollenaktivierung (app/roles/routes.py:_resolve_role_landing). Default deckt
+    # den bisherigen Fall (Dashboard) ab; Rollen ohne dashboard.view-Recht (z. B. künftig Gerätewart)
+    # landen dann auf roles.no_landing statt einem rohen 403.
+    landing_endpoint: Mapped[str] = mapped_column(String(150), nullable=False, default="dashboards.view")
 
     organization = relationship("Organization")
     permissions = relationship("Permission", secondary=role_permissions, backref="roles")

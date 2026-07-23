@@ -17,8 +17,8 @@ def register_cli(app: Flask) -> None:
     @app.cli.command("init-fireflight")
     @click.option("--admin-username", default=None, help="Benutzername des ersten Administrators")
     @click.option("--admin-email", default=None, help="E-Mail des ersten Administrators")
-    @click.option("--admin-password", default=None, help="Passwort des ersten Administrators")
-    def init_fireflight(admin_username, admin_email, admin_password):
+    @click.option("--admin-pin", default=None, help="4-stellige PIN des ersten Administrators")
+    def init_fireflight(admin_username, admin_email, admin_pin):
         """Idempotente Ersteinrichtung: Organisation, Berechtigungen, Rollen, Dashboards,
         erster Administrator (spec-struktur.md Abschnitt 21). Kann gefahrlos mehrfach laufen."""
         from app.auth.services import create_user
@@ -49,16 +49,16 @@ def register_cli(app: Flask) -> None:
         if not has_admin:
             username = admin_username or os.environ.get("FIREFLIGHT_ADMIN_USERNAME", "admin")
             email = admin_email or os.environ.get("FIREFLIGHT_ADMIN_EMAIL", "admin@example.org")
-            password = admin_password or os.environ.get("FIREFLIGHT_ADMIN_PASSWORD")
-            if not password:
-                password = click.prompt(
-                    "Initialpasswort für den ersten Administrator", hide_input=True, confirmation_prompt=True
+            pin = admin_pin or os.environ.get("FIREFLIGHT_ADMIN_PIN")
+            if not pin:
+                pin = click.prompt(
+                    "Initial-PIN (4 Ziffern) für den ersten Administrator", hide_input=True, confirmation_prompt=True
                 )
             user = create_user(
                 organization_id=organization.id,
                 username=username,
                 email=email,
-                password=password,
+                pin=pin,
                 display_name="Administrator",
             )
             user.roles = [admin_role]

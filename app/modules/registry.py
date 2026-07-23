@@ -20,6 +20,7 @@ class ModuleRegistry:
     def __init__(self) -> None:
         self._modules: dict[str, FireFlightModule] = {}
         self.navigation: list[NavigationEntry] = []
+        self.permissions: list[tuple[str, str]] = []
 
     def register(self, module: FireFlightModule, app: "Flask") -> None:
         if module.key in self._modules:
@@ -30,8 +31,24 @@ class ModuleRegistry:
         module.register_widgets(self)
         module.register_navigation(self)
 
+    def reset(self) -> None:
+        # module_registry ist ein Prozess-weites Singleton, waehrend create_app() (z. B. in Tests)
+        # mehrfach pro Prozess aufgerufen wird -- ohne Reset wuerden Module bei der zweiten
+        # App-Erzeugung als "bereits registriert" abgewiesen und Navigation/Permissions sich haeufen.
+        self._modules.clear()
+        self.navigation.clear()
+        self.permissions.clear()
+
     def add_navigation(self, entry: NavigationEntry) -> None:
         self.navigation.append(entry)
+
+    def add_permission(self, key: str, description: str) -> None:
+        self.permissions.append((key, description))
+
+    def add_widget(self, definition) -> None:
+        from app.dashboards.widgets import widget_registry
+
+        widget_registry.register(definition)
 
     def get(self, key: str) -> FireFlightModule | None:
         return self._modules.get(key)

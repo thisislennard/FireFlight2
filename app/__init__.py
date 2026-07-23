@@ -17,6 +17,7 @@ def create_app(config_name: str | None = None) -> Flask:
 
     _init_extensions(app)
     _register_blueprints(app)
+    _register_modules(app)
     _register_error_handlers(app)
     _register_hooks(app)
     _register_cli(app)
@@ -42,19 +43,26 @@ def _init_extensions(app: Flask) -> None:
 
 
 def _register_blueprints(app: Flask) -> None:
-    # Reihenfolge bewusst: auth/roles/dashboards zuerst (werden von administration/dji_flighthub
-    # per url_for referenziert und müssen daher schon registrierte Endpunkte haben).
+    # Reihenfolge bewusst: auth/roles/dashboards zuerst (werden von administration per url_for
+    # referenziert und müssen daher schon registrierte Endpunkte haben).
     from app.administration.routes import bp as administration_bp
     from app.auth.routes import bp as auth_bp
     from app.dashboards.routes import bp as dashboards_bp
-    from app.integrations.dji_flighthub.routes import bp as dji_flighthub_bp
     from app.roles.routes import bp as roles_bp
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(roles_bp)
     app.register_blueprint(dashboards_bp)
     app.register_blueprint(administration_bp)
-    app.register_blueprint(dji_flighthub_bp)
+
+
+def _register_modules(app: Flask) -> None:
+    from app.modules.installed import INSTALLED_MODULES
+    from app.modules.registry import module_registry
+
+    module_registry.reset()
+    for module in INSTALLED_MODULES:
+        module_registry.register(module, app)
 
 
 def _register_error_handlers(app: Flask) -> None:
@@ -85,6 +93,13 @@ def _register_error_handlers(app: Flask) -> None:
 
 
 def _register_hooks(app: Flask) -> None:
+    from app.dashboards.widgets import widget_registry
+
+    # add_template_global() statt context_processor: render_widget() wird in view.html per
+    # `{% from ... import render_widget %}` OHNE `with context` importiert, daher sind
+    # context_processor-Werte im Makro nicht sichtbar -- echte Jinja-Globals (wie url_for) schon.
+    app.add_template_global(widget_registry.get, name="widget_definition")
+
     @app.before_request
     def _load_active_role():
         from app.core.security.permissions import get_active_role
@@ -98,11 +113,7 @@ def _register_hooks(app: Flask) -> None:
         response.headers.setdefault("Referrer-Policy", "same-origin")
         response.headers.setdefault(
             "Content-Security-Policy",
-            # connect-src erlaubt zusaetzlich https: -- einzige Lockerung in der App, noetig fuer den
-            # WHEP-Signaling-Call (fetch) des Livestream-Players gegen den dynamischen DJI-Medienserver
-            # (wechselnde Adresse pro Stream, kein fester Host vorab bekannt). Betrifft nur fetch()/XHR,
-            # nicht Skript-/Style-/Bildquellen. S. app/static/js/whep-player.js.
-            "default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; connect-src 'self' https:",
+            "default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; connect-src 'self'",
         )
         return response
 

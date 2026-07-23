@@ -16,8 +16,9 @@
         {{ form.identifier(class_="input", autofocus=true) }}
       </div>
       <div class="field">
-        {{ form.password.label }}
-        {{ form.password(class_="input") }}
+        {{ form.pin.label }}
+        {{ form.pin(class_="input", inputmode="numeric", pattern="[0-9]*", maxlength=4, autocomplete="off") }}
+        {% for msg in form.pin.errors %}<p class="text-muted">{{ msg }}</p>{% endfor %}
       </div>
       <button class="btn btn-primary btn-block" type="submit">Anmelden</button>
     </form>

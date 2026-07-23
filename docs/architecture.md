@@ -61,52 +61,19 @@ noch keinen Theme-Umschalter in der UI — nur die CSS-Grundlage dafür.
 ## Icons: Textfelder statt echter Lucide-Einbindung
 `Role.icon` ist ein freies Textfeld (z. B. `"shield"`), wird aber in Ausbaustufe 1 nirgends als
 tatsächliches SVG-Icon gerendert. Eine vollständige Lucide-Einbindung (Sprite oder Einzel-SVGs) war
-gegenüber Kern-Funktionalität (Auth, Rollen, Dashboards, DJI-Grundstruktur) nachrangig — siehe
-`docs/roadmap.md`.
+gegenüber Kern-Funktionalität (Auth, Rollen, Dashboards) nachrangig — siehe `docs/roadmap.md`.
 
-## DJI-Integration: echte Anbindung, projektübergreifend, Zugangsdaten über die Administrationsoberfläche
-`IntegrationConfig.settings` (JSONB) speichert pro Organisation Organization Key (X-User-Token),
-Base-URL und die DSGVO-Bestätigung — gepflegt über ein Formular auf
-`/administration/integrations/dji-flighthub/` (Berechtigung `integrations.configure`), analog zu v1s
-Einstellungsseite. Das Org-Key-Feld wird im Formular nie mit dem echten Wert vorausgefüllt (Passwort-
-Input, leer lassen = unverändert lassen) — Zugangsdaten landen dadurch zwar in der DB, aber nie
-hartkodiert im Quellcode (spec-struktur.md Abschnitt 4). `DJI_FLIGHTHUB_ORG_KEY`/`_BASE_URL`-
-Umgebungsvariablen sind nur ein optionaler Deployment-Default, falls die DB-Werte leer sind;
-`DJI_FLIGHTHUB_ENABLED` (Default `true`) ist ein globaler Not-Aus-Schalter unabhängig vom DB-Zustand.
-
-**Bewusst keine Projekt-UUID im Formular:** Ein Organization Key deckt die ganze Organisation ab, die
-kann mehrere DJI-Projekte haben (`GET /project`, org-weit). `LiveDJIFlightHubClient` bekommt daher keine
-feste `project_uuid` mehr im Konstruktor — jede projektgebundene Methode (Geräte-Detail, Telemetrie,
-HMS, Flugaufgaben, Waylines) nimmt `project_uuid` als Parameter. `gather_flighthub_overview()` ruft
-zuerst `list_projects()` auf und holt dann für jedes gefundene Projekt (bis `MAX_PROJECTS`) über
-`list_project_devices()` die zugehörigen Geräte, statt eine einzelne UUID zu erraten/manuell verlangen
-zu müssen. Ursprünglich gab es ein manuelles Projekt-UUID-Feld — auf Nutzerhinweis ("das muss doch auch
-projektübergreifend gehen") am selben Tag durch die automatische Multi-Projekt-Erkennung ersetzt.
-
-**Livestream als bewusste Ausnahme von "nur lesend":** Auf expliziten Nutzerwunsch ist
-`start_livestream()` (`POST /live-stream/start`) angebunden, obwohl es eine echte Steuerfunktion ist
-(startet die Kameraübertragung auf dem realen Gerät) — einzige Ausnahme vom sonst rein lesenden Scope.
-Route `POST /administration/integrations/dji-flighthub/livestream/start` liefert JSON (nicht Redirect),
-da das Ergebnis (WHEP/WebRTC-Wiedergabe-URL) clientseitig von einem selbstgeschriebenen WHEP-Player
-(`app/static/js/whep-player.js`, kein CDN/Fremdlib, reines `RTCPeerConnection` + `fetch`) verarbeitet
-wird, um das Video direkt einzubetten. Dafür wurde die CSP gezielt gelockert: `connect-src 'self'
-https:` zusätzlich zum sonst strikten `default-src 'self'` (s. `app/__init__.py: _security_headers`),
-da der von DJI zurückgelieferte Medienserver-Host pro Stream wechselt und nicht vorab bekannt ist —
-einzige CSP-Lockerung in der ganzen App, bewusst nur für `connect-src` (Skript-/Style-/Bildquellen
-bleiben unverändert `'self'`). Kein serverseitiger "Stop"-Aufruf, da die DJI-API keinen dokumentiert —
-der Stream-Token läuft nach `video_expire` (Default 3600s) ab.
-
-`get_client()` (`app/integrations/dji_flighthub/service.py`) liefert `LiveDJIFlightHubClient` nur, wenn
-**alle drei** Bedingungen erfüllt sind: Not-Aus nicht aktiv, Org Key + Projekt-UUID vorhanden (DB oder
-Env), **und** `settings.dsgvo_ack=true` — sonst immer `MockDJIFlightHubClient`. So kann eine echte
-Anbindung nie versehentlich ohne bewusste DSGVO-Bestätigung aktiv werden. Beide Client-Implementierungen
-erfüllen dieselbe erweiterte `DJIFlightHubClient`-Schnittstelle (`base.py`) — die Übersichtsseite sieht
-in Mock- wie Live-Betrieb identisch aus, nur mit Demo- statt Echtdaten. Nur lesende Endpunkte angebunden
-(Systemstatus, Projekte, Geräte, Telemetrie, HMS, Flugaufgaben inkl. Medien/Track, Waylines) — Steuer-
-endpunkte (Task anlegen, Gerätebefehle, Kamera/RTK/Livestream) bewusst nicht, s. `docs/dji-flighthub2-api.md`.
-`gather_flighthub_overview()` deckelt die Anzahl paralleler Detail-Abfragen (Geräte/Tasks), um bei
-großen Organisationen nicht unkontrolliert viele API-Calls auf einmal auszulösen — reine
-Administrations-/Explorationsseite, kein Vollsynchronisierungsmechanismus.
+## DJI-FlightHub-2-Integration entfernt (2026-07-23)
+Die zuvor hier dokumentierte echte DJI-FlightHub-2-Anbindung (`app/integrations/dji_flighthub/`,
+Mock- und Live-Client, Livestream/WHEP-Player, Administrationsoberfläche) wurde auf Nutzerwunsch
+komplett aus dem Code entfernt, um zunächst einen sauberen Kern ohne externe Integrationen fertigzustellen
+(Ausbaustufe 2 zunächst ohne Integrationen). Die generische `external_references`-Tabelle (Herkunft von
+Daten, spec-struktur.md Abschnitt 15) bleibt bestehen, da sie nicht DJI-spezifisch ist. Die zwei
+DJI-spezifischen Tabellen `integration_configs`/`integration_sync_runs` existieren als Altlast aus der
+initialen Migration ggf. noch in bereits migrierten Datenbanken, werden aber von keinem Modell mehr
+referenziert. Vollständige Historie der Implementierung und Recherche: `CLAUDE.md` Abschnitt „Verlauf"
+und `docs/dji-flighthub2-api.md` (bleibt als Referenz erhalten, falls die Integration später
+zurückkommt).
 
 ## Migrationen: Ein Pfad statt zwei
 Anders als FireFlight v1 (nummerierte Migrationsskripte **plus** separate `_org_alter_statements()`

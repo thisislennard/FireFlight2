@@ -15,12 +15,6 @@
     <span class="card-body">Rollen, Berechtigungen und Dashboards verwalten.</span>
   </a>
   {% endif %}
-  {% if has_permission('integrations.view') %}
-  <a class="role-card" href="{{ url_for('dji_flighthub.status') }}">
-    <span class="card-title">Integrationen</span>
-    <span class="card-body">DJI-FlightHub-2-Status und Synchronisierung.</span>
-  </a>
-  {% endif %}
   {% if has_permission('organization.view') %}
   <a class="role-card" href="{{ url_for('administration.organization') }}">
     <span class="card-title">Organisation</span>

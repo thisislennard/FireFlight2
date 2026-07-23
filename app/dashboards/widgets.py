@@ -6,6 +6,10 @@ class WidgetDefinition:
     key: str
     label: str
     default_config: dict
+    # Optionaler Pfad zu einem eigenen Render-Partial (relativ zu app/templates/), das im
+    # Fallback-Zweig von dashboards/_widget.html eingebunden wird -- der Andockpunkt, ueber den
+    # Fachmodule eigene Widgets rendern koennen, ohne diese zentrale Datei anzufassen.
+    template: str | None = None
 
 
 class WidgetRegistry:
@@ -36,7 +40,6 @@ _BASE_WIDGETS = [
     WidgetDefinition("notice", "Hinweis", {"text": ""}),
     WidgetDefinition("warning", "Warnung", {"text": ""}),
     WidgetDefinition("placeholder", "Platzhalter", {}),
-    WidgetDefinition("dji_integration_status", "DJI-Integrationsstatus", {}),
 ]
 
 for _definition in _BASE_WIDGETS:

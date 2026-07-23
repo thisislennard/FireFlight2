@@ -1,6 +1,6 @@
 def test_init_fireflight_is_idempotent(app):
     runner = app.test_cli_runner()
-    env = {"FIREFLIGHT_ADMIN_PASSWORD": "Sup3rSecret!"}
+    env = {"FIREFLIGHT_ADMIN_PIN": "4726"}
 
     result1 = runner.invoke(args=["init-fireflight"], env=env)
     assert result1.exit_code == 0, result1.output

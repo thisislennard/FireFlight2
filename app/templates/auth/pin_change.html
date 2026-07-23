@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}PIN ändern – FireFlight2{% endblock %}
+{% block page_title %}PIN ändern{% endblock %}
+{% block content %}
+{% if error %}<div class="flash flash-error">{{ error }}</div>{% endif %}
+{% if success %}<div class="flash flash-success">{{ success }}</div>{% endif %}
+<form method="post" class="card elev-sm" style="max-width:420px;">
+  {{ form.hidden_tag() }}
+  <div class="field">
+    {{ form.current_pin.label }}
+    {{ form.current_pin(class_="input", inputmode="numeric", pattern="[0-9]*", maxlength=4, autocomplete="off") }}
+  </div>
+  <div class="field">
+    {{ form.new_pin.label }}
+    {{ form.new_pin(class_="input", inputmode="numeric", pattern="[0-9]*", maxlength=4, autocomplete="off") }}
+    {% for msg in form.new_pin.errors %}<p class="text-muted">{{ msg }}</p>{% endfor %}
+  </div>
+  <div class="field">
+    {{ form.new_pin_confirm.label }}
+    {{ form.new_pin_confirm(class_="input", inputmode="numeric", pattern="[0-9]*", maxlength=4, autocomplete="off") }}
+    {% for msg in form.new_pin_confirm.errors %}<p class="text-muted">{{ msg }}</p>{% endfor %}
+  </div>
+  <div class="form-actions">
+    <button type="submit" class="btn btn-primary">PIN ändern</button>
+  </div>
+</form>
+{% endblock %}

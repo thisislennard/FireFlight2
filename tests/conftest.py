@@ -51,7 +51,7 @@ def admin_user(app, organization, roles):
         organization_id=organization.id,
         username="admin",
         email="admin@example.org",
-        password="Sup3rSecret!",
+        pin="4726",
         display_name="Admin Test",
     )
     user.roles = [roles["administrator"]]
@@ -67,7 +67,7 @@ def regular_user(app, organization, roles):
         organization_id=organization.id,
         username="pilot",
         email="pilot@example.org",
-        password="Sup3rSecret!",
+        pin="4726",
         display_name="Pilot Test",
     )
     user.roles = [roles["pilot_camera"]]
@@ -75,5 +75,5 @@ def regular_user(app, organization, roles):
     return user
 
 
-def login(client, username="admin", password="Sup3rSecret!"):
-    return client.post("/auth/login", data={"identifier": username, "password": password})
+def login(client, username="admin", pin="4726"):
+    return client.post("/auth/login", data={"identifier": username, "pin": pin})

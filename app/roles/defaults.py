@@ -21,9 +21,6 @@ DEFAULT_PERMISSIONS = [
     ("roles.assign_permissions", "Berechtigungen zuweisen"),
     ("organization.view", "Organisation ansehen"),
     ("organization.edit", "Organisation bearbeiten"),
-    ("integrations.view", "Integrationen ansehen"),
-    ("integrations.configure", "Integrationen konfigurieren"),
-    ("integrations.sync", "Synchronisierung auslösen"),
     ("administration.access", "Administrationsbereich betreten"),
     ("audit.view", "Audit-Log ansehen"),
     ("settings.view", "Einstellungen ansehen"),
@@ -53,7 +50,7 @@ DEFAULT_ROLES = [
     },
     {
         "key": "equipment_officer", "name": "Gerätewart", "icon": "tool", "sort_order": 60,
-        "permissions": ["dashboard.view", "integrations.view"],
+        "permissions": ["dashboard.view"],
     },
     {
         "key": "tel_elw", "name": "TEL-ELW", "icon": "truck", "sort_order": 70,

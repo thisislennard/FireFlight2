@@ -1,3 +1,4 @@
+import re
 import uuid
 
 from flask import Blueprint, abort, current_app, redirect, render_template, request, url_for
@@ -6,9 +7,10 @@ from flask_login import current_user, login_required
 from app.audit.models import AuditLog
 from app.audit.service import log_event
 from app.auth.models import User
-from app.auth.services import assign_roles, create_user, list_users, set_user_active
+from app.auth.services import assign_roles, create_user, list_users, set_user_active, unlock_account
 from app.core.exceptions import ValidationError
-from app.core.security.permissions import ensure_permission, get_active_role, permission_required
+from app.core.security.passwords import is_trivial_pin
+from app.core.security.permissions import ensure_permission, get_active_role, permission_required, role_has_permission
 from app.dashboards.models import DashboardWidget
 from app.dashboards.services import add_widget, get_or_create_dashboard, remove_widget, update_widget
 from app.dashboards.widgets import widget_registry
@@ -45,11 +47,16 @@ def user_new():
     error = None
     if request.method == "POST":
         try:
+            pin = request.form["pin"]
+            if not re.fullmatch(r"\d{4}", pin):
+                raise ValidationError("Die PIN muss aus genau 4 Ziffern bestehen.")
+            if is_trivial_pin(pin):
+                raise ValidationError("Diese PIN ist zu leicht zu erraten. Bitte eine andere PIN wählen.")
             new_user = create_user(
                 organization_id=current_user.organization_id,
                 username=request.form["username"].strip(),
                 email=request.form["email"].strip(),
-                password=request.form["password"],
+                pin=pin,
                 display_name=request.form["display_name"].strip(),
             )
             log_event("user.create", result="success", object_type="user", object_id=str(new_user.id))
@@ -99,6 +106,15 @@ def user_toggle_active(user_id):
     return redirect(url_for("administration.users"))
 
 
+@bp.route("/users/<uuid:user_id>/unlock", methods=["POST"])
+@permission_required("users.edit")
+def user_unlock(user_id):
+    user = User.query.get_or_404(user_id)
+    unlock_account(user)
+    log_event("user.unlock", result="success", object_type="user", object_id=str(user.id))
+    return redirect(url_for("administration.user_edit", user_id=user.id))
+
+
 # --- Rollen --------------------------------------------------------------------
 
 @bp.route("/roles")
@@ -132,6 +148,22 @@ def role_new():
     )
 
 
+def _landing_choices_for_role(role: Role) -> list[tuple[str, str]]:
+    """Zielendpunkte, die im Editor als Startbereich einer Rolle wählbar sind -- gefiltert auf die
+    Berechtigungen, die die Rolle aktuell besitzt (spec-struktur.md-Erweiterung: Rollen ohne
+    Dashboard). `dashboards.view` erscheint nur, wenn die Rolle `dashboard.view` hat; weitere Ziele
+    kommen aus `ModuleRegistry.navigation`, sobald Fachmodule eigene Navigationseinträge liefern."""
+    from app.modules.registry import module_registry
+
+    choices = []
+    if role_has_permission(role, "dashboard.view"):
+        choices.append(("dashboards.view", "Dashboard"))
+    for entry in module_registry.navigation:
+        if entry.permission is None or role_has_permission(role, entry.permission):
+            choices.append((entry.endpoint, entry.label))
+    return choices
+
+
 @bp.route("/roles/<uuid:role_id>", methods=["GET", "POST"])
 @permission_required("roles.edit")
 def role_edit(role_id):
@@ -144,6 +176,7 @@ def role_edit(role_id):
             icon=request.form.get("icon") or None,
             accent_color=request.form.get("accent_color") or None,
             sort_order=int(request.form.get("sort_order", role.sort_order) or role.sort_order),
+            landing_endpoint=request.form.get("landing_endpoint") or "dashboards.view",
         )
         ensure_permission(get_active_role(), "roles.assign_permissions")
         set_role_permissions(role, request.form.getlist("permission_keys"))
@@ -152,6 +185,7 @@ def role_edit(role_id):
     return render_template(
         "administration/role_edit.html", role=role, error=None,
         all_permissions=Permission.query.order_by(Permission.key).all(),
+        landing_choices=_landing_choices_for_role(role),
     )
 
 

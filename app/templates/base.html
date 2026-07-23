@@ -25,7 +25,6 @@
         <span class="sidebar-section-label">Administration</span>
         {% if has_permission('users.view') %}<a href="{{ url_for('administration.users') }}" class="sidebar-link">Benutzer</a>{% endif %}
         {% if has_permission('roles.view') %}<a href="{{ url_for('administration.roles') }}" class="sidebar-link">Rollen</a>{% endif %}
-        {% if has_permission('integrations.view') %}<a href="{{ url_for('dji_flighthub.status') }}" class="sidebar-link">Integrationen</a>{% endif %}
         {% if has_permission('organization.view') %}<a href="{{ url_for('administration.organization') }}" class="sidebar-link">Organisation</a>{% endif %}
         {% if has_permission('audit.view') %}<a href="{{ url_for('administration.audit_log') }}" class="sidebar-link">Audit-Log</a>{% endif %}
       </nav>
@@ -50,6 +49,7 @@
           {% elif active_role %}
           <span class="tag tag-neutral">{{ active_role.name }}</span>
           {% endif %}
+          <a class="btn btn-ghost" href="{{ url_for('auth.pin_change') }}">PIN ändern</a>
           <form method="post" action="{{ url_for('auth.logout') }}">
             <button class="btn btn-secondary" type="submit">Abmelden</button>
           </form>

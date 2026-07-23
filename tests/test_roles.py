@@ -9,7 +9,7 @@ def _create_multi_role_user(organization, roles, username="multi"):
         organization_id=organization.id,
         username=username,
         email=f"{username}@example.org",
-        password="Sup3rSecret!",
+        pin="4726",
         display_name="Multi Rolle",
     )
     user.roles = [roles["pilot_camera"], roles["flight_leader"]]
@@ -59,7 +59,7 @@ def test_permission_check_denies_unauthorized_access(client, app, organization, 
 
     user = create_user(
         organization_id=organization.id, username="norights", email="norights@example.org",
-        password="Sup3rSecret!", display_name="Ohne Rechte",
+        pin="4726", display_name="Ohne Rechte",
     )
     user.roles = [roles["documentation"]]  # hat nur dashboard.view
     db.session.commit()
@@ -97,3 +97,58 @@ def test_last_administrator_cannot_be_disabled(client, admin_user, roles):
     assert response.status_code == 302
     db.session.refresh(admin_user)
     assert admin_user.is_active_account is True
+
+
+def test_role_without_dashboard_permission_lands_on_no_landing_page(client, app, organization, roles):
+    """Rolle ohne dashboard.view (z. B. künftig Gerätewart) darf nach Aktivierung nicht in einen
+    rohen 403 laufen, sondern muss auf der Hinweisseite landen (s. Restrukturierungsplan Abschnitt 2)."""
+    from app.auth.services import create_user
+    from app.roles.services import set_role_permissions
+
+    set_role_permissions(roles["equipment_officer"], [])
+    user = create_user(
+        organization_id=organization.id, username="geraetewart_test", email="geraetewart_test@example.org",
+        pin="4726", display_name="Gerätewart Test",
+    )
+    user.roles = [roles["equipment_officer"]]
+    db.session.commit()
+
+    login(client, username="geraetewart_test")
+    response = client.post(f"/roles/activate/{roles['equipment_officer'].id}")
+    assert response.status_code == 302
+    assert response.headers["Location"].endswith("/roles/no-landing")
+
+    follow = client.get(response.headers["Location"])
+    assert follow.status_code == 200
+    assert "kein Startbereich konfiguriert" in follow.get_data(as_text=True)
+
+
+def test_role_with_custom_landing_endpoint_redirects_there(client, admin_user, roles):
+    from app.roles.services import update_role
+
+    update_role(roles["documentation"], landing_endpoint="administration.audit_log")
+    from app.auth.services import create_user
+
+    user = create_user(
+        organization_id=roles["documentation"].organization_id, username="doku_test", email="doku_test@example.org",
+        pin="4726", display_name="Doku Test",
+    )
+    user.roles = [roles["documentation"]]
+    db.session.commit()
+
+    login(client, username="doku_test")
+    response = client.post(f"/roles/activate/{roles['documentation'].id}")
+    assert response.status_code == 302
+    assert "/administration/audit-log" in response.headers["Location"]
+
+
+def test_role_editor_offers_dashboard_only_when_permission_present(client, admin_user, roles):
+    login(client)
+    client.post(f"/roles/activate/{roles['administrator'].id}")
+
+    from app.roles.services import set_role_permissions
+
+    set_role_permissions(roles["equipment_officer"], [])
+    response = client.get(f"/administration/roles/{roles['equipment_officer'].id}")
+    assert response.status_code == 200
+    assert 'value="dashboards.view"' not in response.get_data(as_text=True)

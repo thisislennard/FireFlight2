@@ -18,12 +18,21 @@ class User(UUIDPrimaryKeyMixin, TimestampMixin, UserMixin, db.Model):
     )
     username: Mapped[str] = mapped_column(String(80), nullable=False, unique=True)
     email: Mapped[str] = mapped_column(String(255), nullable=False, unique=True)
-    password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
+    pin_hash: Mapped[str] = mapped_column(String(255), nullable=False)
+    # Erzwingt PIN-Wechsel nach Admin-Anlage/-Reset, bevor der Account regulär nutzbar ist (noch nicht
+    # in Routen durchgesetzt -- Feld ist vorbereitet, Erzwingung folgt mit der Admin-Anlage-UI).
+    must_change_pin: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    pin_set_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     display_name: Mapped[str] = mapped_column(String(200), nullable=False)
     is_active_account: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     failed_login_attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     locked_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # Progressive Sperr-Eskalation (app/auth/services.py:_register_failed_attempt) -- bei nur 10.000
+    # möglichen 4-stelligen PINs ist Lockout die einzige wirksame Verteidigung gegen Brute-Force.
+    lockout_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    last_lockout_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    requires_admin_unlock: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     last_used_role_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("roles.id"))
 
     organization = relationship("Organization")

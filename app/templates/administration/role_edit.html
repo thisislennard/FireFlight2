@@ -14,6 +14,17 @@
   {% if role %}
   <div class="field"><label>Sortierung</label><input class="input" type="number" name="sort_order" value="{{ role.sort_order }}"></div>
   <div class="field">
+    <label>Startbereich nach Rollenwahl</label>
+    <select class="input" name="landing_endpoint">
+      {% for endpoint, label in landing_choices %}
+      <option value="{{ endpoint }}" {% if role.landing_endpoint == endpoint %}selected{% endif %}>{{ label }}</option>
+      {% endfor %}
+    </select>
+    {% if not landing_choices %}
+    <p class="text-muted">Der Rolle fehlt aktuell jede passende Berechtigung für einen Startbereich — sie landet nach der Aktivierung auf einer Hinweisseite statt einem Dashboard.</p>
+    {% endif %}
+  </div>
+  <div class="field">
     <label>Berechtigungen{% if role.is_system %} (Systemrolle – erhält automatisch alle Berechtigungen){% endif %}</label>
     <div class="checkbox-list">
       {% for permission in all_permissions %}

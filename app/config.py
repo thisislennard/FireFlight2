@@ -17,17 +17,11 @@ class BaseConfig:
 
     MAX_CONTENT_LENGTH = 16 * 1024 * 1024
 
-    # Globaler Not-Aus-Schalter (Default an) — Zugangsdaten/DSGVO-Bestätigung pro Organisation kommen
-    # aus der Administrationsoberfläche (IntegrationConfig), s. app/integrations/dji_flighthub/service.py.
-    DJI_FLIGHTHUB_ENABLED = os.environ.get("DJI_FLIGHTHUB_ENABLED", "true").lower() == "true"
-    # Kein Default: "https://fh.dji.com" ist nachweislich nur die statische Web-Oberfläche, nicht die
-    # API (s. docs/dji-flighthub2-api.md) — die echte Basis-URL ist account-/regionsspezifisch und muss
-    # explizit gesetzt werden (Env oder Administrationsoberfläche).
-    DJI_FLIGHTHUB_BASE_URL = os.environ.get("DJI_FLIGHTHUB_BASE_URL", "")
-    DJI_FLIGHTHUB_ORG_KEY = os.environ.get("DJI_FLIGHTHUB_ORG_KEY", "")
-
-    LOGIN_MAX_FAILED_ATTEMPTS = 5
-    LOGIN_LOCKOUT_MINUTES = 15
+    # Bei nur 10.000 möglichen 4-stelligen PINs bietet der Hash praktisch keinen Brute-Force-Schutz
+    # mehr -- Lockout ist die einzige wirksame Verteidigung, daher niedrigerer Schwellwert als bei
+    # Passwörtern üblich und progressive Sperrstufen (app/auth/services.py:_register_failed_attempt).
+    LOGIN_MAX_FAILED_ATTEMPTS = 3
+    LOGIN_LOCKOUT_STAGES_MINUTES = [15, 60]  # 1./2. Sperre; ab der 3. Sperre: requires_admin_unlock
 
 
 class DevelopmentConfig(BaseConfig):
