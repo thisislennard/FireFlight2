@@ -6,8 +6,8 @@
     <span class="tag tag-neutral">{{ device.label }}</span>
     <h2 style="font-size:20px;">Angemeldet als {{ current_user.display_name }}</h2>
     <p class="card-body">
-      Reduzierter Hardware-Feasibility-Spike (Phase 5) -- Wizard-Inhalte, Qualifikationsfilter und die
-      volle Kiosk-Navigation folgen in späteren Phasen.
+      Hardware-Feasibility-Spike (Phase 5) + Zwei-Schritt-Login (Phase 11) -- echte Wizard-Inhalte
+      (Preflight/Flugstart/Flugende) und die volle Kiosk-Navigation folgen in Phase 12.
     </p>
     {% if not vapid_public_key %}
     <div class="flash flash-error">Web-Push ist auf diesem Server nicht konfiguriert (VAPID-Schlüssel fehlen).</div>
@@ -30,6 +30,7 @@
     </p>
     {% endif %}
     <form method="post" action="{{ url_for('rc.logout') }}" style="margin-top: var(--space-3);">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <button type="submit" class="btn btn-ghost">Person wechseln</button>
     </form>
   </div>

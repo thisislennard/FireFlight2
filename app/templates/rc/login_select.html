@@ -1,0 +1,31 @@
+{% extends "rc/base.html" %}
+{% block title %}Wer bedient das Gerät? – FireFlight2 RC{% endblock %}
+{% block content %}
+<div class="auth-card">
+  <div class="auth-brand">
+    <img class="auth-logo auth-logo-light" src="{{ url_for('static', filename='img/logo-light.png') }}" alt="FireFlight2">
+    <img class="auth-logo auth-logo-dark" src="{{ url_for('static', filename='img/logo-dark.png') }}" alt="FireFlight2">
+  </div>
+  <div class="card elev-md">
+    <span class="tag tag-neutral">{{ device.label }}</span>
+    <h2 style="font-size:20px;">Wer bedient das Gerät?</h2>
+    {% if candidates %}
+    <form method="post" style="display:flex; flex-direction:column; gap: var(--space-2);">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      {% for candidate in candidates %}
+      <button type="submit" name="user_id" value="{{ candidate.id }}" class="btn btn-secondary btn-block">
+        {{ candidate.display_name }}
+        {% if candidate.is_pilot %}<span class="tag tag-outline">Pilot</span>{% endif %}
+        {% if candidate.is_camera_operator %}<span class="tag tag-outline">Kamera</span>{% endif %}
+      </button>
+      {% endfor %}
+    </form>
+    {% else %}
+    <p class="card-body">
+      Kein Nutzer mit passender Qualifikation gefunden. Qualifikationen werden unter Administration →
+      Benutzer vergeben.
+    </p>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

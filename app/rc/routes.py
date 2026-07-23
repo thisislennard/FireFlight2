@@ -1,13 +1,16 @@
 from __future__ import annotations
 
+import uuid
+
 from flask import Blueprint, current_app, g, redirect, render_template, request, session, url_for
 from flask_login import current_user, login_required, login_user, logout_user
 
 from app.audit.service import log_event
-from app.auth.forms import LoginForm
+from app.auth.models import User
 from app.auth.services import AccountLockedError, authenticate
 from app.core.models import get_setting
-from app.rc.forms import DevicePairForm
+from app.extensions import db
+from app.rc.forms import DevicePairForm, RcPinForm
 from app.rc.services import mark_paired, resolve_device_by_key
 
 bp = Blueprint("rc", __name__, url_prefix="/rc")
@@ -15,6 +18,22 @@ bp = Blueprint("rc", __name__, url_prefix="/rc")
 DEVICE_COOKIE_NAME = "rc_device_token"
 DEVICE_COOKIE_MAX_AGE = 60 * 60 * 24 * 365 * 5  # 5 Jahre -- physisches Gerät, keine Ablaufroutine vorgesehen
 _DEVICE_EXEMPT_ENDPOINTS = {"rc.pair", "rc.service_worker"}
+_LOGIN_CANDIDATE_SESSION_KEY = "rc_login_candidate_id"
+
+
+def _qualified_candidates(device) -> list[User]:
+    """Nutzer für Schritt 1 der RC-Anmeldung (Konzeptdokument Abschnitt 5.1): "nur User mit
+    passender Qualifikation [...] werden angezeigt". Ohne Qualifikationsfilter am Gerät wird nicht
+    jeder aktive Nutzer gezeigt, sondern nur wer überhaupt Pilot- oder Kamera-Qualifikation hat --
+    ein Gerät ohne Filter bedeutet "beide Rollen erlaubt", nicht "jede Person erlaubt"."""
+    users = (
+        User.query.filter_by(organization_id=device.organization_id, is_active_account=True)
+        .order_by(User.display_name)
+        .all()
+    )
+    if device.required_qualification:
+        return [u for u in users if u.has_qualification(device.required_qualification)]
+    return [u for u in users if u.qualifications]
 
 
 @bp.before_request
@@ -57,14 +76,30 @@ def pair():
 
 @bp.route("/login", methods=["GET", "POST"])
 def login():
+    """Zwei-Schritt-Login (Konzeptdokument Abschnitt 5.1, Phase 11): Schritt 1 -- Nutzer aus der
+    qualifikationsgefilterten Liste antippen (Zustand nur `_LOGIN_CANDIDATE_SESSION_KEY` in der
+    Session, noch keine echte Anmeldung). Schritt 2 -- nur noch PIN-Eingabe für den bereits
+    ausgewählten Nutzer. "Anderer Nutzer"/`rc.login_reselect` springt zurück zu Schritt 1."""
     if current_user.is_authenticated:
         return redirect(url_for("rc.home"))
 
-    form = LoginForm()
+    candidate_id = session.get(_LOGIN_CANDIDATE_SESSION_KEY)
+    candidate = db.session.get(User, uuid.UUID(candidate_id)) if candidate_id else None
+
+    if candidate is None:
+        candidates = _qualified_candidates(g.rc_device)
+        if request.method == "POST":
+            selected = next((u for u in candidates if str(u.id) == request.form.get("user_id")), None)
+            if selected is not None:
+                session[_LOGIN_CANDIDATE_SESSION_KEY] = str(selected.id)
+                return redirect(url_for("rc.login"))
+        return render_template("rc/login_select.html", candidates=candidates, device=g.rc_device)
+
+    form = RcPinForm()
     error = None
     if form.validate_on_submit():
         try:
-            user = authenticate(form.identifier.data.strip(), form.pin.data)
+            user = authenticate(candidate.username, form.pin.data)
         except AccountLockedError as exc:
             error = (
                 "Konto ist gesperrt. Bitte einen Administrator kontaktieren, um die Sperre aufzuheben."
@@ -73,11 +108,13 @@ def login():
             )
         else:
             if user is None:
-                error = "Benutzername/E-Mail oder PIN ist falsch."
+                error = "PIN ist falsch."
             elif not user.has_qualification(g.rc_device.required_qualification):
                 # PIN war korrekt -- bewusst KEIN _register_failed_attempt/Lockout, das ist kein
                 # Bruteforce-Indiz, sondern ein "falsches Gerät für diese Qualifikation"-Fall
-                # (Phase 7: Qualifikationsfilter, Konzeptdokument Abschnitt 5.1).
+                # (Phase 7: Qualifikationsfilter, Konzeptdokument Abschnitt 5.1). In der Praxis sollte
+                # das dank der gefilterten Auswahl in Schritt 1 nicht mehr auftreten -- bleibt als
+                # Verteidigung gegen zwischenzeitlich geänderte Qualifikationen bestehen.
                 log_event("rc_device.operator_login_denied", result="failure", user=user,
                            object_type="rc_device", object_id=str(g.rc_device.id),
                            extra_data={"reason": "qualification_mismatch",
@@ -94,7 +131,14 @@ def login():
                 log_event("rc_device.operator_login", result="success", user=user,
                            object_type="rc_device", object_id=device_id)
                 return redirect(url_for("rc.home"))
-    return render_template("rc/login.html", form=form, error=error, device=g.rc_device)
+    return render_template("rc/login_pin.html", form=form, error=error, device=g.rc_device, candidate=candidate)
+
+
+@bp.route("/login/reselect", methods=["POST"])
+def login_reselect():
+    """"Anderer Nutzer": zurück zu Schritt 1 der RC-Anmeldung, ohne die Geräte-Session zu berühren."""
+    session.pop(_LOGIN_CANDIDATE_SESSION_KEY, None)
+    return redirect(url_for("rc.login"))
 
 
 @bp.route("/logout", methods=["POST"])

@@ -8,7 +8,7 @@ v1 bleibt unangetastet produktiv unter `G:\5 GitHub\FireFlight`. Volle Architekt
 **Vollständige Struktur-/Architektur-Vorgabe des Nutzers:** `docs/spec-struktur.md` (wörtliche Spezifikation vom 2026-07-19, Ausbaustufe 1). **Vollständige Design-Vorgabe:** `docs/spec-design.md` (Design-Tokens, Komponenten-CSS, Begründungen). **Konzeptvorgabe Ausbaustufe 2:** `fireflight2-konzept-struktur.md` (Fachmodule + PWA/Push, vom Nutzer 2026-07-23 geliefert) — daraus abgeleiteter Restrukturierungs-/Phasenplan wurde vom Nutzer freigegeben, liegt nicht im Repo. **Umsetzungsstand/Roadmap:** `docs/roadmap.md` — was aus welcher Ausbaustufe bereits implementiert und live verifiziert ist, was noch offen ist, was bewusst verschoben wurde. Vor jeder neuen Session zuerst dort nachsehen. Diese Datei hier fasst zusammen und verweist dorthin — bei Detailfragen zuerst dort nachsehen.
 
 ## Umsetzungsstand
-Ausbaustufe 1 aus `docs/spec-struktur.md` ist **implementiert und lokal live verifiziert** (venv + lokales PostgreSQL, da auf dieser Maschine kein Docker installiert ist): Datenmodell, Auth, Rollen/Berechtigungen, Dashboards, Modul-Registry, Administration, CLI-Init, Templates/Design. Ausbaustufe 2 (Fachmodule + PWA/Push aus `fireflight2-konzept-struktur.md`) ist **in Arbeit** — Phase 1 (Modul-Registry-Bootstrap), Phase 2 (Rollen ohne Dashboard), Phase 3 (PIN-Login-Migration, Passwort komplett ersetzt), Phase 4 (Notifications-Kern, Web-Push), Phase 5 (RC-Hardware-Feasibility-Spike, reduzierter Umfang), Phase 6 (Drohneneinheiten), Phase 7 (Nutzerprofil-Erweiterung inkl. scharf geschaltetem RC-Qualifikationsfilter), Phase 8 (generische Wizard-Engine, noch ohne echte Fachinhalte), Phase 9 (Einsatz/Übung + Flugbuch mit Karte, erstes echtes Fachmodul über das Modul-Registry-System) und Phase 10 (Tickets + Wartungsintervalle, Gerätewart als erste Rolle ohne Dashboard) sind umgesetzt und getestet, weitere 5 Phasen (RC-PWA-Vollausbau, RC-Wizard-Inhalte, Dashboard-Module, externe Integrationen, Tests/Doku) stehen aus. Die eigentliche Hardware-Verifikation von Phase 4/5 (echter Browser-/RC-Push-Rundlauf auf der realen DJI RC Plus) ist noch offen — nur Code + automatisierte Tests + `curl`-Rundlauf gegen den Dev-Server sind verifiziert. Die zuvor implementierte DJI-FlightHub-2-Integration wurde am 2026-07-23 auf Nutzerwunsch **komplett wieder entfernt** (kein Fachmodul/keine Integration soll den Kern ablenken, bevor dieser fertig steht) — Details im Verlauf unten. Details, offene Punkte und nächste Schritte: `docs/roadmap.md`.
+Ausbaustufe 1 aus `docs/spec-struktur.md` ist **implementiert und lokal live verifiziert** (venv + lokales PostgreSQL, da auf dieser Maschine kein Docker installiert ist): Datenmodell, Auth, Rollen/Berechtigungen, Dashboards, Modul-Registry, Administration, CLI-Init, Templates/Design. Ausbaustufe 2 (Fachmodule + PWA/Push aus `fireflight2-konzept-struktur.md`) ist **in Arbeit** — Phase 1 (Modul-Registry-Bootstrap), Phase 2 (Rollen ohne Dashboard), Phase 3 (PIN-Login-Migration, Passwort komplett ersetzt), Phase 4 (Notifications-Kern, Web-Push), Phase 5 (RC-Hardware-Feasibility-Spike, reduzierter Umfang), Phase 6 (Drohneneinheiten), Phase 7 (Nutzerprofil-Erweiterung inkl. scharf geschaltetem RC-Qualifikationsfilter), Phase 8 (generische Wizard-Engine, noch ohne echte Fachinhalte), Phase 9 (Einsatz/Übung + Flugbuch mit Karte, erstes echtes Fachmodul über das Modul-Registry-System), Phase 10 (Tickets + Wartungsintervalle, Gerätewart als erste Rolle ohne Dashboard) und Phase 11 (Teilumfang: Zwei-Schritt-RC-Login) sind umgesetzt und getestet, weitere 4 Phasen (RC-Wizard-Inhalte inkl. Zwei-Knopf-Ende-Bildschirm, Dashboard-Module, externe Integrationen, Tests/Doku) stehen aus -- plus die weiterhin ausstehende Hardware-Verifikation auf der echten DJI RC Plus. Die eigentliche Hardware-Verifikation von Phase 4/5 (echter Browser-/RC-Push-Rundlauf auf der realen DJI RC Plus) ist noch offen — nur Code + automatisierte Tests + `curl`-Rundlauf gegen den Dev-Server sind verifiziert. Die zuvor implementierte DJI-FlightHub-2-Integration wurde am 2026-07-23 auf Nutzerwunsch **komplett wieder entfernt** (kein Fachmodul/keine Integration soll den Kern ablenken, bevor dieser fertig steht) — Details im Verlauf unten. Details, offene Punkte und nächste Schritte: `docs/roadmap.md`.
 
 ## Warum Neuentwicklung statt Weiterentwicklung von v1
 - **Technische Basis modernisieren** — weg vom frameworklosen Python-Stdlib-HTTP-Server (`http.server.ThreadingHTTPServer`) aus v1
@@ -66,6 +66,36 @@ Vollständige Liste: `FireFlight/README.md`, Abschnitt „Funktionen". Kurzfassu
 - **Passwort-Hashing** in v1: PBKDF2-HMAC-SHA256, 120.000 Iterationen, 16-Byte-Salt — als Mindeststandard falls kein Framework-Default (z. B. Flask-Bcrypt) gewählt wird
 
 ## Verlauf / Planungsentscheidungen
+### 2026-07-23 (Fortsetzung) — Phase 11 (Teilumfang): Zwei-Schritt-RC-Login umgesetzt
+Auf "starte erstmal lokal" (Dev-Server gestartet, Admin-PIN auf Nutzerwunsch auf `1234` gesetzt --
+lokal bewusst trotz Denylist trivialer PINs, direkt in der DB) und danach "okay cool dann mach mal
+weiter" begonnen. Vollständige Details in `docs/roadmap.md` Abschnitt „Status: Ausbaustufe 2".
+
+Bewusst nur den Login-Flow aus Konzeptdokument Abschnitt 5.1 umgesetzt (Schritt 1: qualifikationsgefilterte
+Nutzerliste zum Antippen; Schritt 2: nur noch PIN für den bereits ausgewählten Nutzer), **nicht** den
+Zwei-Knopf-Ende-Bildschirm aus Abschnitt 5.6 -- der gehört zum Ende eines Wizard-*Laufs*, und ohne
+echte RC-Wizard-Inhalte (erst Phase 12) gäbe es dafür noch keinen sinnvollen Auslösepunkt.
+
+**Zwei echte Funde dabei:** (1) Das "Person wechseln"-Formular auf `rc/home.html` hatte noch nie
+einen CSRF-Token -- RC-Seiten haben kein `hx-boost` wie die Desktop-App, das den Header automatisch
+injiziert, und es war ein rohes Formular ohne `hidden_tag()`. In einem echten Browser wäre das mit
+400 Bad Request fehlgeschlagen; alle bisherigen Live-Verifikationen dieser Session hatten den Header
+selbst per `curl`/`requests` nachgebaut und den Bug damit verdeckt. Behoben, neue rohe RC-Formulare
+bekamen von Anfang an ein `csrf_token`-Feld. (2) `manifest-rc.webmanifest` hatte nur ein 160×160-Icon
+-- für Chromes Installierbarkeits-Kriterien ergänzt um 192×192/512×512 (mit Pillow hochskaliert, nur
+als Build-Zeit-Werkzeug, nicht in `requirements.txt`).
+
+**Bewusst nicht angegangen, da neu entdeckte, im 15-Phasen-Plan nirgends verortete Lücke:** Die
+"Büro-Nutzung" (Konzeptdokument Abschnitt 1: "mit Möglichkeit zur Installation als PWA") hat noch
+kein eigenes PWA-Manifest -- nur die RC-Seite ist installierbar. Mit dem Nutzer zu klären statt
+stillschweigend mit hineinzuwachsen.
+
+`tests/test_rc.py` komplett auf den neuen Zwei-Schritt-Flow umgeschrieben (ein `_login_two_step()`-
+Helper ersetzt alle direkten `identifier`+`pin`-Posts), fünf neue Tests. **Live gegen den echten
+Dev-Server verifiziert:** Schritt 1 zeigt nur qualifikationsgefilterte Kandidaten, Auswahl führt zu
+Schritt 2, falsche PIN bleibt mit Fehlermeldung auf Schritt 2, richtige PIN führt zu `/rc/home`,
+"Anderer Nutzer" springt zurück zu Schritt 1. Testsuite 187/187 grün, kein neues DB-Modell.
+
 ### 2026-07-23 (Fortsetzung) — Phase 10: Tickets + Wartungsintervalle umgesetzt
 Auf "ja mach weiter" direkt im Anschluss an Phase 9 begonnen. Vollständige technische Details in
 `docs/roadmap.md` Abschnitt „Status: Ausbaustufe 2". Zweites Fachmodul über das Modul-Registry-System

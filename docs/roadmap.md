@@ -374,20 +374,66 @@ erst nach allen Fachmodulen).
   check-due` erst mit sauberer Fehlermeldung ohne VAPID-Konfiguration, dann erfolgreich mit echten
   VAPID-Schlüsseln (3 benachrichtigte Nutzer für die überfällige Testregel). Testsuite 182/182 grün.
 
-Testsuite insgesamt: 182/182 grün (`pytest`, lokal gegen `fireflight2_test`).
+- **Phase 11 — RC-PWA-Vollausbau (Teilumfang: Zwei-Schritt-Login)**: nur der Login-Flow-Teil aus dem
+  Konzeptdokument Abschnitt 5.1 umgesetzt, bewusst **ohne** den Zwei-Knopf-Ende-Bildschirm ("Selbe
+  Person, neuer Flug"/"Komplett neu") aus Abschnitt 5.6 -- der gehört zum Ende eines Wizard-*Laufs*,
+  und ohne echte Wizard-Inhalte im RC-Kontext (kommen erst mit Phase 12) gäbe es dafür noch keinen
+  sinnvollen Auslösepunkt zu bauen. `/rc/login` ist jetzt zweistufig: Schritt 1 zeigt eine
+  qualifikationsgefilterte Liste aktiver Nutzer zum Antippen (`app/rc/routes.py:
+  _qualified_candidates()` -- ohne geräteseitigen Filter werden nur Nutzer mit *irgendeiner*
+  Qualifikation gezeigt, nicht jeder aktive Account), Auswahl landet nur in der Session
+  (`rc_login_candidate_id`), noch keine echte Anmeldung. Schritt 2 fragt nur noch die PIN des bereits
+  ausgewählten Nutzers ab (`RcPinForm`, kein Identifier-Feld mehr -- der Nutzer wird nicht mehr
+  eingetippt). `/rc/login/reselect` ("Anderer Nutzer") springt zurück zu Schritt 1. Der bestehende
+  serverseitige Qualifikationsfilter aus Phase 7 bleibt als Verteidigung in Schritt 2 bestehen, greift
+  über die normale Oberfläche aber kaum noch, da Schritt 1 bereits filtert -- nur noch relevant, falls
+  sich die Qualifikation eines Nutzers zwischen Auswahl und PIN-Eingabe ändert, oder bei einer direkt
+  manipulierten `user_id`, die nicht in der gerenderten Liste stand (wird in Schritt 1 bereits
+  abgewiesen, landet gar nicht erst in der Session).
+
+  **Nebenfund, echter Bug (nicht nur Testartefakt):** Das "Person wechseln"-Formular auf
+  `rc/home.html` hatte noch **nie** einen CSRF-Token -- RC-Seiten haben (anders als die Desktop-App)
+  kein `hx-boost`, das automatisch den `X-CSRFToken`-Header injiziert, und das Formular war ein
+  rohes `<form>` ohne `hidden_tag()`. In einem echten Browser ohne manuell nachgebauten Header (wie in
+  den bisherigen `curl`/`requests`-Verifikationen dieser Session, die den Header selbst gesetzt haben)
+  hätte das mit `400 Bad Request` fehlgeschlagen. Behoben, und alle drei neuen rohen RC-Formulare
+  (Schritt 1, "Anderer Nutzer") bekamen von Anfang an ein `csrf_token`-Hidden-Field.
+
+  Zusätzlich, im Zuge der PWA-Politur: `manifest-rc.webmanifest` hatte nur ein einzelnes
+  160×160-Icon -- für die von Chrome/Android geprüften Installierbarkeits-Kriterien werden meist
+  192×192 und 512×512 erwartet. Mit Pillow (nur als Build-Zeit-Werkzeug genutzt, **nicht** in
+  `requirements.txt`) aus dem vorhandenen Icon hochskaliert und als zusätzliche Manifest-Einträge
+  ergänzt (`app/static/img/icon-mark-192.png`/`-512.png`).
+
+  **Bewusst nicht angegangen, da neue, bisher in keiner Phase explizit verortete Lücke:** Für die
+  "Büro-Nutzung" (Konzeptdokument Abschnitt 1) existiert **kein** eigenes PWA-Manifest -- nur die
+  RC-Seite ist als PWA installierbar. Der 15-Phasen-Plan nennt nirgends eine "Büro-PWA"-Phase
+  explizit; ob/wann das nachgezogen wird, sollte mit dem Nutzer geklärt werden statt hier
+  stillschweigend mit hinein zu wachsen.
+
+  Tests: `tests/test_rc.py` komplett auf den Zwei-Schritt-Flow umgeschrieben (alle Aufrufer von
+  `/rc/login` mit `identifier`+`pin` in einem Schritt ersetzt durch einen `_login_two_step()`-Helper);
+  fünf neue Tests für Schritt-1-Filterung, Auswahl→Schritt-2-Übergang, Tamper-Schutz und "Anderer
+  Nutzer". Live gegen den echten Dev-Server verifiziert: Schritt 1 zeigt nur qualifikationsgefilterte
+  Kandidaten, Auswahl führt zu Schritt 2 mit Begrüßung, falsche PIN bleibt auf Schritt 2 mit
+  Fehlermeldung, richtige PIN führt zu `/rc/home`, "Anderer Nutzer" springt zurück zu Schritt 1.
+  Testsuite 187/187 grün (kein neues DB-Modell, daher keine Migration nötig).
+
+Testsuite insgesamt: 187/187 grün (`pytest`, lokal gegen `fireflight2_test`).
 
 ### Als Nächstes (Reihenfolge s. Restrukturierungsplan)
 Hardware-Verifikation auf der echten DJI RC Plus (Phase 4/5 zusammen, s. o.: Push-Rundlauftest im
 normalen Browser zuerst, danach PWA-Installation über `/rc/pair` → `/rc/home` mit einem der beiden
 `seed-test-data`-Testgeräte, Hintergrund-Push, DJI-Pilot-2-Deep-Link-URL ermitteln und in
-Administration → RC-Geräte eintragen) → Phase 11 RC-PWA-Vollausbau (u. a. das im Konzeptdokument
-Abschnitt 5.1 beschriebene Zwei-Schritt-Login mit Nutzerauswahl vor PIN-Eingabe, sowie der
-Zwei-Knopf-Ende-Bildschirm aus Abschnitt 5.6) → Phase 12 RC-Wizard-Inhalte (verdrahtet die generische
+Administration → RC-Geräte eintragen) → Phase 12 RC-Wizard-Inhalte (verdrahtet die generische
 Wizard-Engine aus Phase 8 mit den echten Flugbuch-Modellen aus Phase 9, inkl. eines neuen
 `location`-Step-Typs für GPS+Zeit-Auto-Erfassung, der die vorhandenen `Flight.start_lat/-lon`-Felder
-befüllt) → Phase 13 fachliche Dashboard-Module (u. a. ein Flugbuch-/Karten-Widget auf Basis der
-Phase-9-Daten und ein "Technisches Problem melden"-Widget auf Basis von Phase 10) → Phase 14 externe
-Integrationen (DWD/OpenSky) → Phase 15 Tests und Dokumentation.
+befüllt, und dem Zwei-Knopf-Ende-Bildschirm aus Konzeptdokument-Abschnitt 5.6) → Phase 13 fachliche
+Dashboard-Module (u. a. ein Flugbuch-/Karten-Widget auf Basis der Phase-9-Daten und ein "Technisches
+Problem melden"-Widget auf Basis von Phase 10) → Phase 14 externe Integrationen (DWD/OpenSky) →
+Phase 15 Tests und Dokumentation. Offen und mit dem Nutzer zu klären: ob/wann eine "Büro-PWA"
+(Installierbarkeit der Desktop-Oberfläche, Konzeptdokument Abschnitt 1) nachgezogen wird -- im
+15-Phasen-Plan bisher keiner Phase explizit zugeordnet.
 
 ---
 

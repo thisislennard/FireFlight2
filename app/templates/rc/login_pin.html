@@ -8,19 +8,19 @@
   </div>
   <div class="card elev-md">
     <span class="tag tag-neutral">{{ device.label }}</span>
-    <h2 style="font-size:20px;">Anmelden</h2>
+    <h2 style="font-size:20px;">Hallo, {{ candidate.display_name }}</h2>
     {% if error %}<div class="flash flash-error">{{ error }}</div>{% endif %}
     <form method="post">
       {{ form.hidden_tag() }}
       <div class="field">
-        {{ form.identifier.label }}
-        {{ form.identifier(class_="input", autofocus=true) }}
-      </div>
-      <div class="field">
         {{ form.pin.label }}
-        {{ form.pin(class_="input", inputmode="numeric", pattern="[0-9]*", maxlength=4, autocomplete="off") }}
+        {{ form.pin(class_="input", inputmode="numeric", pattern="[0-9]*", maxlength=4, autocomplete="off", autofocus=true) }}
       </div>
       <button class="btn btn-primary btn-block" type="submit">Anmelden</button>
+    </form>
+    <form method="post" action="{{ url_for('rc.login_reselect') }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button type="submit" class="btn btn-ghost btn-block">Anderer Nutzer</button>
     </form>
   </div>
 </div>
