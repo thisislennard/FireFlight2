@@ -22,6 +22,7 @@ def create_app(config_name: str | None = None) -> Flask:
     _register_hooks(app)
     _register_cli(app)
     _register_root_route(app)
+    _register_service_worker_route(app)
     _configure_logging(app)
 
     return app
@@ -160,6 +161,18 @@ def _register_root_route(app: Flask) -> None:
         if not session.get("active_role_id"):
             return redirect(url_for("roles.select"))
         return redirect(url_for("dashboards.view"))
+
+
+def _register_service_worker_route(app: Flask) -> None:
+    @app.route("/sw.js")
+    def service_worker():
+        # Eigene Route statt direkt /static/js/sw.js: der Browser leitet den Service-Worker-Scope aus
+        # dem Pfad der REQUEST-URL ab, nicht aus dem Speicherort der Datei -- nur so bekommt der
+        # Büro-PWA-Service-Worker automatisch Scope "/" (Root), analog zu app/rc/routes.py:
+        # service_worker() für den RC-Zugang (Scope "/rc/"). Gleicher Dateiinhalt wie
+        # /static/js/sw.js -- anders als beim RC-Zugang kein Fork nötig, da für den Büro-Kontext kein
+        # abweichendes Push-Verhalten absehbar ist.
+        return app.send_static_file("js/sw.js")
 
 
 def _configure_logging(app: Flask) -> None:

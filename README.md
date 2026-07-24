@@ -62,7 +62,7 @@ FireFlight2/
 │   ├── audit/                     # Audit-Log-Modell + Service
 │   ├── templates/, static/         # Jinja2-Templates, CSS-Design-System, HTMX, Archivo-Font, Leaflet (vendored)
 ├── migrations/                # Alembic-Migrationen (Flask-Migrate)
-├── tests/                     # pytest-Suite (232 Tests, Stand Ausbaustufe 2 Phase 14)
+├── tests/                     # pytest-Suite (236 Tests, Stand Ausbaustufe 2 inkl. Büro-PWA-Nachtrag)
 ├── docker/entrypoint.sh       # Wartet auf DB, führt Migrationen aus, startet Gunicorn
 ├── Dockerfile, docker-compose.yml
 ├── docs/                      # spec-struktur.md, spec-design.md, roadmap.md, architecture.md
@@ -143,7 +143,7 @@ $env:TEST_DATABASE_URL = "postgresql://fireflight2:fireflight2-local@localhost:5
 pytest
 ```
 
-232 Tests (Stand Ausbaustufe 2, Phase 14), u. a.: Login-Erfolg/-Fehlschlag, progressive
+236 Tests (Stand Ausbaustufe 2 inkl. Büro-PWA-Nachtrag), u. a.: Login-Erfolg/-Fehlschlag, progressive
 Konto-Sperr-Eskalation, PIN-Wechsel/Admin-Unlock, Rollenauswahl/-wechsel inkl. Rollen ohne
 Dashboard, Berechtigungsprüfung, Schutz des letzten Administrators, Dashboard-/Widget-Verwaltung,
 Modul-Registry-Bootstrap, Web-Push (Subscribe/Unsubscribe/Versand inkl. 404/410-Handling),
@@ -151,8 +151,8 @@ RC-Gerätekopplung + Zwei-Schritt-Login + Qualifikationsfilter, Drohneneinheiten
 (inkl. Magic-Byte-Bildvalidierung), generische Wizard-Engine + admin-konfigurierte
 RC-Wizard-Läufe (Preflight/Flugstart/Genehmigung/Flugende), Einsätze/Flugbuch mit Karte, Tickets +
 Wartungsintervalle, die beiden externen Dashboard-Widgets (DWD/OpenSky, mit gemocktem
-`requests.get` — **kein** echter Netzwerkzugriff in der automatisierten Suite), Audit-Log-Einträge,
-Idempotenz von `init-fireflight`/`seed-test-data`. Externe HTTP-Aufrufe (Push, DWD, OpenSky) werden
+`requests.get` — **kein** echter Netzwerkzugriff in der automatisierten Suite), Büro-PWA-Manifest/
+Service-Worker-Routen, Audit-Log-Einträge, Idempotenz von `init-fireflight`/`seed-test-data`. Externe HTTP-Aufrufe (Push, DWD, OpenSky) werden
 in Tests durchgehend gemockt; Live-Verifikation gegen echte Endpunkte läuft separat gegen den
 laufenden Dev-Server (Details je Phase in `docs/roadmap.md`).
 
@@ -226,6 +226,16 @@ Fehlversuche) und progressive Sperreskalation: 1. Sperre 15 Min., 2. Sperre 60 M
 nur per Admin-Aktion aufhebbar). **Bewusst dokumentiertes, ungelöstes Risiko:** ob der Büro-Zugang
 hinter einem offenen Internetzugriff oder VPN/interner Netz läuft, ist nicht entschieden — bei
 offenem Zugriff bleibt die PIN (10.000 Kombinationen) die einzige Hürde, s. `docs/roadmap.md`.
+
+## Büro-PWA
+
+Die normale Desktop-/Büro-Oberfläche ist als installierbare PWA nutzbar (`app/static/
+manifest.webmanifest`, Scope `/`). Root-skopierter Service Worker über die Route `/sw.js`
+(`app/__init__.py: service_worker()`, liefert denselben Inhalt wie `/static/js/sw.js` aus, das für
+Web-Push aus Phase 4 bereits existierte); `app/static/js/pwa.js` registriert ihn proaktiv auf jeder
+Seite, damit Browser den Installieren-Dialog anbieten. Voraussetzung für einen echten
+Installieren-Dialog ist HTTPS (oder `localhost`) — die eigentliche Installation in einem echten
+Browser hinter einem echten Reverse Proxy ist bisher nicht getestet, s. `docs/roadmap.md`.
 
 ## RC-PWA-Zugang
 

@@ -1,5 +1,8 @@
 (function () {
-  const DEFAULT_SW_URL = "/static/js/sw.js";
+  // Root-Scope-Route (app/__init__.py: service_worker()) statt /static/js/sw.js direkt -- seit der
+  // Büro-PWA (app/static/js/pwa.js) ist das der bereits aktiv registrierte Service Worker, kein
+  // zusätzliches zweites Scope-Registrieren mehr nötig.
+  const DEFAULT_SW_URL = "/sw.js";
 
   function csrfToken() {
     return document.querySelector('meta[name="csrf-token"]').content;

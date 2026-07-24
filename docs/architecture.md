@@ -167,6 +167,19 @@ keine weiteren Lockerungen. Karten-Marker-Daten werden serverseitig zu reinen JS
 reduziert und über einen `<script type="application/json">`-Block eingebettet statt per Inline-JS
 gerendert, bleibt damit CSP-konform.
 
+### PWA-Service-Worker: Scope über die Request-Route, nicht über den Dateispeicherort
+Ein Service Worker bekommt seinen Standard-Scope aus dem Pfad, unter dem er ausgeliefert wird, nicht
+aus seinem Speicherort im Dateisystem. Beide PWA-Zugänge (RC unter `/rc/sw.js`, Büro unter `/sw.js`,
+Nachtrag nach Phase 15) liefern deshalb über eine eigene Flask-Route statt eines direkten
+`/static/...`-Links aus, damit der Browser automatisch den richtigen Scope (`/rc/` bzw. `/`)
+ableitet. Bewusster Unterschied zwischen beiden: der RC-Service-Worker ist inhaltlich eine eigene
+Datei (`sw-rc.js`, weil für den RC-Kiosk-Kontext divergierendes Push-Verhalten absehbar war/ist),
+der Büro-Service-Worker liefert dagegen exakt dieselbe Datei wie das bestehende `/static/js/sw.js`
+aus Phase 4 aus — kein Grund für eine zweite Kopie, da sich normaler Browser-Push und Büro-PWA-Push
+inhaltlich nicht unterscheiden. Installierbarkeit verlangt außerdem eine *aktive* Registrierung vor
+dem ersten Installieren-Dialog (nicht erst bei Bedarf wie bisher der Notifications-Opt-in) — dafür
+registriert `app/static/js/pwa.js` den Worker unconditional auf jeder Seite.
+
 ## Verifikation der Ausbaustufe 2
 Jede Phase wurde einzeln gegen die reale lokale Dev-Datenbank migriert (nie nur `db.create_all()`
 in Tests) und, wo sinnvoll, per `curl`/echtem Browser-Rundlauf gegen den laufenden Dev-Server

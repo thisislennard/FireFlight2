@@ -647,9 +647,51 @@ Testsuite insgesamt (Ausbaustufe 2, Stand Phase 13): 218/218 grün.
   durchführbaren Punkte (Hardware-Verifikation auf der echten DJI RC Plus, Docker-Compose-Lauf) --
   s. "Als Nächstes" unten sowie `docs/architecture.md` Abschnitt "Verifikation der Ausbaustufe 2".
 
+- **Nachtrag — Büro-PWA** (2026-07-24, auf Nutzerwunsch nach Phase 15 nachgezogen, keinem der 15
+  Phasen zugeordnet gewesen): Die Desktop-/Büro-Oberfläche ist jetzt wie die RC-Seite als
+  installierbare PWA nutzbar. Neues `app/static/manifest.webmanifest` (Scope `/`, `start_url: "/"`
+  -- die bestehende `/`-Route leitet je nach Login-/Rollenstatus passend weiter, genau der richtige
+  Einstiegspunkt für eine installierte App). Root-skopierter Service-Worker über eine neue Route
+  `/sw.js` (`app/__init__.py: service_worker()`), analog zum bereits bestehenden Muster für den
+  RC-Zugang (`app/rc/routes.py: service_worker()`, Scope `/rc/`) -- der Browser leitet den Scope aus
+  dem Pfad der Request-URL ab, nicht aus dem Speicherort der Datei. Anders als beim RC-Zugang **kein
+  Fork des Service-Worker-Inhalts** nötig: `/sw.js` liefert exakt dieselbe Datei wie das bestehende
+  `/static/js/sw.js` aus Phase 4 aus (dessen Kommentar diese spätere Nutzung bereits vorwegnahm),
+  da für den Büro-Kontext kein vom normalen Browser-Push abweichendes Verhalten zu erwarten ist.
+
+  Neues `app/static/js/pwa.js` registriert den Service Worker **proaktiv auf jeder Seite** (Login
+  eingeschlossen, nicht erst beim Klick auf "Push aktivieren" wie bisher nur auf
+  `/notifications/settings`) -- Installierbarkeits-Kriterien (Chrome) verlangen eine aktive
+  Service-Worker-Registrierung, die den `start_url` abdeckt, bevor der Installieren-Dialog angeboten
+  wird. `app/templates/base.html` bekam dafür `<link rel="manifest">` + `<meta name="theme-color">`
+  im Kopf sowie das neue Script am Seitenende. `app/static/js/notifications.js`s
+  `DEFAULT_SW_URL` von `/static/js/sw.js` auf `/sw.js` umgestellt, um keine zweite,
+  enger skopierte Service-Worker-Registrierung parallel zur jetzt bereits aktiven Root-Registrierung
+  zu erzeugen.
+
+  **Nebenfund während der Umsetzung:** ein Zwischenstand der Datei (Aufruf der neuen
+  Registrierungsfunktion bereits eingefügt, deren Definition noch nicht) wurde vom Werkzeug-
+  Auto-Reloader des laufenden Dev-Servers zwischen zwei Edit-Schritten aufgegriffen und brachte den
+  Server kurzzeitig zum Absturz (`NameError`) -- reiner Artefakt des Live-Reload-Timings während der
+  Bearbeitung, kein Anwendungsfehler; Server nach Abschluss der Änderung neu gestartet, danach
+  fehlerfrei.
+
+  4 neue Tests (`tests/test_pwa.py`): `/sw.js` liefert identischen Inhalt wie `/static/js/sw.js`,
+  Manifest ist gültiges JSON mit `scope`/`start_url` `"/"` und beiden großen Icon-Größen, sowohl
+  Login- als auch Dashboard-Seite verlinken das Manifest und laden `pwa.js`. Testsuite:
+  **236/236 grün.** Live gegen den echten Dev-Server verifiziert: Manifest wird mit
+  `Content-Type: application/manifest+json` ausgeliefert, `/sw.js` mit `application/javascript`,
+  beide serverseitigen Installierbarkeits-Voraussetzungen (Manifest, Icons, aktiver
+  Service-Worker-Scope) damit erfüllt. **Nicht automatisiert verifizierbar:** der eigentliche
+  Installieren-Dialog/-Vorgang in einem echten Browser (Chrome-Installierbarkeitsprüfung läuft
+  clientseitig) sowie das Verhalten in einer echten HTTPS-Produktivumgebung -- lokal reicht
+  `localhost` als von Chrome anerkannte sichere Ausnahme, das ist aber nicht dasselbe wie ein
+  echter Reverse-Proxy-HTTPS-Betrieb. Vom Nutzer selbst zu testen, sobald die App produktiv läuft.
+
 ### Als Nächstes
-Der 15-Phasen-Restrukturierungsplan ist damit inhaltlich vollständig umgesetzt. Verbleibend, beide
-nur vom Nutzer selbst durchführbar (keine Entwicklungsaufgabe mehr):
+Der 15-Phasen-Restrukturierungsplan ist inhaltlich vollständig umgesetzt, die Büro-PWA als
+Nachtrag ebenfalls. Verbleibend sind drei Punkte, alle nur vom Nutzer selbst durchführbar (keine
+Entwicklungsaufgabe mehr):
 1. **Hardware-Verifikation auf der echten DJI RC Plus** (Phase 4/5/12): Push-Rundlauftest im
    normalen Browser zuerst, danach PWA-Installation über `/rc/pair` → `/rc/home` mit einem der
    beiden `seed-test-data`-Testgeräte, Hintergrund-Push, DJI-Pilot-2-Deep-Link-URL ermitteln und in
@@ -657,10 +699,8 @@ nur vom Nutzer selbst durchführbar (keine Entwicklungsaufgabe mehr):
    auf echter Hardware.
 2. **Docker-Compose-Lauf** (`docker compose up -d --build`) auf einer Maschine mit Docker, bisher
    nie getestet (Entwicklungsmaschine hat kein Docker installiert).
-
-Offen und mit dem Nutzer zu klären: ob/wann eine "Büro-PWA" (Installierbarkeit der
-Desktop-Oberfläche, Konzeptdokument Abschnitt 1) nachgezogen wird -- im 15-Phasen-Plan bisher
-keiner Phase explizit zugeordnet.
+3. **Büro-PWA-Installation in einem echten Browser** verifizieren (Installieren-Dialog, Verhalten
+   hinter echtem HTTPS-Reverse-Proxy statt nur `localhost`).
 
 ---
 

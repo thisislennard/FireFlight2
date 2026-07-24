@@ -1,7 +1,9 @@
-// Minimaler Service Worker fuer den Web-Push-Rundlauftest aus dem normalen Browser (Phase 4,
-// Notifications-Kern). Bewusst mit Standard-Scope ("/static/js/") statt Root-Scope registriert --
-// die eigentlichen, installierbaren PWA-Service-Worker mit Root-/"/rc/"-Scope (manifest-desktop.
-// webmanifest, manifest-rc.webmanifest) sind Restrukturierungsplan-Abschnitt 4, Phasen 5/11.
+// Service Worker fuer Web-Push (Phase 4, Notifications-Kern) UND die Büro-PWA-Installierbarkeit
+// (offene Frage aus dem Restrukturierungsplan, nachgezogen nach Phase 15). Wird unter zwei Pfaden
+// ausgeliefert: /static/js/sw.js (Standard-Scope, historisch) und /sw.js (Root-Scope, app/__init__.py:
+// service_worker() -- der Pfad der REQUEST-URL bestimmt den Scope). Neue Registrierungen (app/static/
+// js/pwa.js, app/static/js/notifications.js) nutzen /sw.js, damit ein Nutzer die Desktop-Oberfläche
+// als installierbare PWA nutzen kann.
 
 self.addEventListener("push", (event) => {
   let payload = { title: "FireFlight2", body: "" };
