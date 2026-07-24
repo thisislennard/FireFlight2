@@ -496,10 +496,9 @@ erst nach allen Fachmodulen).
 
 Testsuite insgesamt: 205/205 grün (`pytest`, lokal gegen `fireflight2_test`).
 
-### Phase 13 — fachliche Dashboard-Module (IN ARBEIT, Stand 2026-07-23 Abend -- hier weitermachen)
-Implementierung fertig, Live-Verifikation nicht ganz abgeschlossen -- Session wurde vom Nutzer bewusst
-für den Tag beendet, bevor der letzte Verifikationsschritt lief. **Nicht als "fertig" einsortieren,
-bevor die drei Punkte unter "Nächste Schritte" unten erledigt sind.**
+- **Phase 13 — fachliche Dashboard-Module**: fertig und live verifiziert (Implementierung
+  2026-07-23, Live-Verifikation am 2026-07-24 in einer neuen Session abgeschlossen -- Fortsetzung
+  nach `git pull`, siehe „Nachtrag 2026-07-24" unten).
 
 **Umgesetzt:** neuer `FireFlightModule.register_template_globals(app)`-Hook (`app/modules/base.py`,
 `app/modules/registry.py`) -- Andockpunkt für Jinja-Globals, die Fachmodul-Widget-Templates brauchen,
@@ -528,41 +527,99 @@ Admin-Aufgabe (spec-struktur.md Abschnitt 4), das ist nur für Testdaten/Verifik
 (`tests/test_module_widgets.py` neu, plus 1 in `tests/test_incidents.py` für den `limit`-Parameter).
 Testsuite: **218/218 grün.** Keine Migration nötig (keine neuen DB-Spalten).
 
-**Live-Verifikation (Teilstand):** Flugbuch-Karte-Widget gegen den echten Dev-Server bestätigt --
+**Live-Verifikation:** Flugbuch-Karte-Widget gegen den echten Dev-Server bestätigt (2026-07-23) --
 `test_flight_leader` eingeloggt, `/dashboard/` zeigt die echte, korrekt nach `limit` begrenzte
-Marker-Liste mit realen Flugdaten aus der DB (inkl. `detail_url`, Pilot, Kamera-Operator). Melde-Formular-
-Widget bestätigt korrekt zu rendern (`action="/tickets/melden"`, Titel-/Foto-Feld vorhanden) auf
-`test_pilot_camera`s Dashboard. **Nicht abgeschlossen:** der eigentliche `POST /tickets/melden`
-Live-Test (mit Foto-Upload) wurde mitten im `curl`-Aufruf unterbrochen, weil der Nutzer die Session für
-den Tag beenden wollte -- per DB-Check bestätigt, dass dabei **kein** Ticket/keine Karteileiche entstanden
-ist (sauberer Zustand). Zusätzlich beim Live-Test aufgefallen: zwei Alt-Testeinsätze aus einer früheren
-Phase-12-Debug-Session (`Live-Verifikation Übung`, `Live-Test-Einsatz`) tauchen jetzt sichtbar im
-Flugbuch-Karte-Widget auf -- Aufräumen war nach Phase 12 nicht vollständig (nur 4 der damals
-angelegten Test-Einsätze wurden entfernt).
+Marker-Liste mit realen Flugdaten aus der DB (inkl. `detail_url`, Pilot, Kamera-Operator).
+Melde-Formular-Widget bestätigt korrekt zu rendern (`action="/tickets/melden"`, Titel-/Foto-Feld
+vorhanden) auf `test_pilot_camera`s Dashboard.
 
-**Nächste Schritte (in dieser Reihenfolge, bevor Phase 13 als fertig gilt):**
-1. `POST /tickets/melden` gegen den Dev-Server zu Ende verifizieren (mit UND ohne Foto-Anhang), inkl.
-   Flash-Meldung und Redirect zurück zu `/dashboard/`.
-2. Die beiden Alt-Test-Einsätze `Live-Verifikation Übung` und `Live-Test-Einsatz` aus der lokalen
-   Dev-DB entfernen (reines Aufräumen, keine Anwendungsänderung).
-3. Diesen Abschnitt durch einen normalen "Fertig und live verifiziert"-Eintrag ersetzen (Stil wie
-   Phase 1-12 oben) und den passenden `CLAUDE.md`-Verlaufseintrag von "Zwischenstand" auf den finalen
-   Wortlaut umstellen.
+**Nachtrag 2026-07-24 (neue Session, nach `git pull`):** der zuvor unterbrochene `POST
+/tickets/melden`-Live-Test zu Ende geführt, per `curl` mit `X-CSRFToken`-Header (Desktop-Formulare
+nutzen `hx-headers` statt eines Hidden-Fields, s. `base.html`) gegen den echten Dev-Server:
+einmal ohne Foto, einmal mit einem echten 1×1-PNG (Magic-Byte-Validierung bestanden) -- beide Male
+`302` zu `/dashboard/` mit Flash `"Meldung erstellt."`, per DB-Check bestätigt, dass Ticket
+(inkl. bei Bedarf `TicketAttachment` + Datei unter `instance/uploads/ticket_attachments/`) korrekt
+persistiert wurde. Beide Test-Tickets anschließend wieder aus der DB **und** vom Dateisystem
+entfernt, um keine Testartefakte zu hinterlassen. Die zuvor erwähnten Alt-Testeinsätze
+(`Live-Verifikation Übung`, `Live-Test-Einsatz`) waren in der lokalen Dev-DB **nicht mehr
+auffindbar** (nur die beiden regulären `seed-test-data`-Einsätze vorhanden) -- Ursache nicht
+geklärt (vermutlich in einer nicht dokumentierten Zwischen-Session bereits aufgeräumt oder DB
+zwischenzeitlich neu aufgesetzt), Punkt damit ohne weiteres Zutun erledigt. Vor der Verifikation
+musste die lokale Dev-DB erst per `flask db upgrade` von `c610af27d089` (Phase 6) auf
+`49286e4006a0` (Phase 12, aktueller Head) gehoben werden -- die Migrationen der Phasen 7-12 waren
+auf dieser Maschine noch nicht angewendet, da der zwischenzeitliche Fortschritt in einer anderen
+Session/auf einem anderen Weg entstanden und erst per `git pull` auf diese Maschine gekommen war.
+Testsuite unverändert 218/218 (keine Code-Änderung, nur Live-Test + Aufräumen).
 
-Erst danach weiter mit Phase 14 (externe Integrationen DWD/OpenSky) laut Roadmap-Reihenfolge, oder mit
-der weiterhin ausstehenden Hardware-Verifikation auf der echten DJI RC Plus (Phase 4/5/12, s. u.) --
-je nachdem, was der Nutzer als Nächstes vorgibt.
+Testsuite insgesamt (Ausbaustufe 2, Stand Phase 13): 218/218 grün.
+
+- **Phase 14 — externe Dashboard-Module DWD-Wetter + OpenSky**: "schlanke Direktanbindung"
+  (Nutzerentscheidung 2026-07-24, nach der Rückfrage zum Umfang -- explizit **kein** eigenes
+  `app/integrations/`-Package, keine Mock-/Live-Client-Trennung, keine Admin-Konfigurationsseite,
+  keine Sync-Jobs wie einst bei DJI FlightHub, das komplett wieder entfernt wurde). Zwei neue,
+  eigenständige `FireFlightModule`s (`app/modules/weather/`, `app/modules/opensky/`), analog zum
+  Widget-Muster aus Phase 13, aber ohne eigene Permission-Prüfung -- beide Datenquellen sind
+  öffentliche, nicht organisationsbezogene Daten, jede Rolle mit dem Widget auf ihrem Dashboard
+  darf es sehen.
+
+  **Wetter-Widget** (`weather.current`): ruft [Bright Sky](https://brightsky.dev/) auf, einen
+  freien Wrapper um die DWD-Open-Data-Schnittstelle (kein API-Key nötig), für den konfigurierten
+  Standort (`WEATHER_LOCATION_LAT/LON`, Default Feuerwehr Liederbach am Taunus -- identisch mit dem
+  seit Phase 9 verwendeten Karten-Fallback-Mittelpunkt). Zeigt die für Flugbetrieb relevante
+  Teilmenge (Konzeptdokument: "relevant für Drohnenbetrieb"): Temperatur, Bedingung, Wind/Böen,
+  Niederschlag, Bewölkung, Sicht, Messzeitpunkt (über `to_local()` aus Phase 9 in die
+  Anzeige-Zeitzone konvertiert).
+
+  **OpenSky-Widget** (`opensky.map`): ruft die freie OpenSky-REST-API anonym auf (kein Key, aber
+  nur 400 Requests/Tag erlaubt), Bounding-Box um denselben Standort mit
+  `OPENSKY_RADIUS_KM` (Default 50 km, Kleinwinkelnäherung statt Großkreisberechnung -- für diese
+  Größenordnung ausreichend genau). Zeigt eine kompakte Leaflet-Karte (`app/static/js/
+  opensky_widget_map.js`, lokal vendorte Leaflet-Instanz aus Phase 9 wiederverwendet) mit einem
+  Marker je Luftfahrzeug mit aktueller Positionsmeldung (Rufzeichen/Höhe/Geschwindigkeit im
+  Popup), gedeckelt auf `_MAX_AIRCRAFT = 30` Einträge -- kein theoretisches Limit: der reale
+  Standort liegt nahe Frankfurt Airport, der Live-Test lieferte tatsächlich exakt 30 Flugzeuge
+  im Radius (Cap also aktiv genutzt, nicht nur vorsorglich gesetzt).
+
+  **Caching:** neues generisches `app/core/utilities/external_cache.py` (`cached(key, ttl,
+  fetch)`), ein simpler In-Prozess-TTL-Cache ohne Redis/DB -- bewusste Vereinfachung passend zur
+  "schlanken" Umfangsentscheidung. Cacht auch Fehlerfälle (verhindert Retry-Stürme bei einem
+  API-Ausfall), mit der bekannten Einschränkung, dass mehrere Gunicorn-Worker im Produktivbetrieb
+  je einen eigenen Cache hätten (für die geringe Nutzerzahl dieser App hingenommen). TTLs:
+  `WEATHER_CACHE_SECONDS = 600` (DWD aktualisiert ohnehin nur stündlich), `OPENSKY_CACHE_SECONDS
+  = 300` (begrenzt den Verbrauch auf max. 288 Requests/Tag selbst bei Dauerlast, mit Puffer unter
+  dem 400er-Tageslimit).
+
+  `requests` (bisher nur transitiv über `pywebpush`) zu `requirements.txt` ergänzt, da jetzt direkt
+  verwendet. **Nebenfund beim ersten Testlauf:** das lokale `.venv` auf dieser Maschine hatte
+  `tzdata` (seit Phase 9 in `requirements.txt`) nie tatsächlich installiert -- `to_local()` schlug
+  beim Rendern des Wetter-Widgets prompt mit `ZoneInfoNotFoundError` fehl, da als erster Codepfad
+  seit Phase 9 tatsächlich `ZoneInfo("Europe/Berlin")` in diesem venv auflöste. Kein Anwendungsfehler,
+  reine venv-Drift (`pip install -r requirements.txt` nachgeholt).
+
+  Keine Migration nötig (keine neuen DB-Spalten, keine Persistenz -- beide Widgets sind rein
+  live-abgefragt+gecacht). 14 neue Tests (`tests/test_weather_widget.py`,
+  `tests/test_opensky_widget.py`): Service-Erfolg/-Fehler/Cache-Verhalten mit gemocktem
+  `requests.get` (kein echter Netzwerkzugriff in der automatisierten Suite), Widget-Registrierung,
+  Dashboard-Rendering inkl. Fehlerzustand. Testsuite: **232/232 grün.** `flask seed-test-data`
+  erweitert: beide Widgets zusätzlich zur Flugbuch-Karte auf dem Flugleiter-Test-Dashboard.
+
+  **Live gegen den echten Dev-Server verifiziert** (2026-07-24, `test_flight_leader` eingeloggt,
+  `/dashboard/`) -- **mit echten Aufrufen der echten öffentlichen DWD-/OpenSky-Endpunkte** (bewusst
+  kein Mock: beides sind Lese-Endpunkte ohne Seiteneffekt, kein Push/Webhook mit Ziel-Domain-Risiko):
+  Wetter-Widget zeigte reale Live-Messwerte (14,4 °C, trocken, Wind 6,5 km/h aus 80°, Böen
+  11,5 km/h, 0 mm Niederschlag, 100 % Bewölkung, 42,6 km Sicht), OpenSky-Widget zeigte 30 reale
+  Flugzeuge mit ICAO24-Adressen im Radius (Cap erreicht, s. o.). Keiner der beiden
+  "nicht verfügbar"-Fehlerzustände wurde ausgelöst.
 
 ### Als Nächstes (Reihenfolge s. Restrukturierungsplan)
-**Zuerst die drei Punkte oben unter Phase 13 "Nächste Schritte" abschließen.** Danach: Hardware-
-Verifikation auf der echten DJI RC Plus (Phase 4/5, s. o.: Push-Rundlauftest im normalen Browser
+Phase 15 (Tests und Dokumentation) laut Roadmap-Reihenfolge, oder die weiterhin ausstehende
+Hardware-Verifikation auf der echten DJI RC Plus (Phase 4/5: Push-Rundlauftest im normalen Browser
 zuerst, danach PWA-Installation über `/rc/pair` → `/rc/home` mit einem der beiden
 `seed-test-data`-Testgeräte, Hintergrund-Push, DJI-Pilot-2-Deep-Link-URL ermitteln und in
 Administration → RC-Geräte eintragen, außerdem der komplette Preflight→Flugstart→Flugende-Zyklus aus
-Phase 12 auf echter Hardware) → Phase 14 externe Integrationen (DWD/OpenSky) → Phase 15 Tests und
-Dokumentation. Offen und mit dem Nutzer zu klären: ob/wann eine "Büro-PWA" (Installierbarkeit der
-Desktop-Oberfläche, Konzeptdokument Abschnitt 1) nachgezogen wird -- im
-15-Phasen-Plan bisher keiner Phase explizit zugeordnet.
+Phase 12 auf echter Hardware) -- je nachdem, was der Nutzer als Nächstes vorgibt. Offen und mit dem
+Nutzer zu klären: ob/wann eine "Büro-PWA" (Installierbarkeit der Desktop-Oberfläche, Konzeptdokument
+Abschnitt 1) nachgezogen wird -- im 15-Phasen-Plan bisher keiner Phase explizit zugeordnet.
 
 ---
 

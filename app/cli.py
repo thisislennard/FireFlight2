@@ -413,4 +413,13 @@ def register_cli(app: Flask) -> None:
             )
             click.echo("Problem-melden-Widget zum Pilot/Kamera-Dashboard hinzugefügt.")
 
+        # Phase 14: DWD-Wetter + OpenSky-Luftraum -- flugbetriebsrelevant, daher ebenfalls auf dem
+        # Flugleiter-Dashboard (analog zur Flugbuch-Karte oben).
+        if not any(w.widget_type == "weather.current" for w in flight_leader_dashboard.widgets):
+            add_widget(flight_leader_dashboard, widget_type="weather.current", title="Wetter (DWD)", config={})
+            click.echo("Wetter-Widget zum Flugleiter-Dashboard hinzugefügt.")
+        if not any(w.widget_type == "opensky.map" for w in flight_leader_dashboard.widgets):
+            add_widget(flight_leader_dashboard, widget_type="opensky.map", title="Luftraum (OpenSky)", config={})
+            click.echo("OpenSky-Widget zum Flugleiter-Dashboard hinzugefügt.")
+
         click.echo("Testdaten sichergestellt.")

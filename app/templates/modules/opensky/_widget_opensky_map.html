@@ -1,0 +1,16 @@
+{% set data = opensky_map_widget_data(widget) %}
+<div class="card-title">{{ widget.title or "Luftraum (OpenSky)" }}</div>
+{% if not data.available %}
+  <p class="card-body text-muted">OpenSky-Daten aktuell nicht verfügbar.</p>
+{% else %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='lib/leaflet/leaflet.css') }}">
+  <div class="opensky-widget-map" data-map-data="opensky-widget-map-data-{{ widget.id }}"
+       data-center-lat="{{ data.center.lat }}" data-center-lon="{{ data.center.lon }}"
+       style="height:260px; border:1px solid var(--color-divider);"></div>
+  <script type="application/json" id="opensky-widget-map-data-{{ widget.id }}">{{ data.aircraft | tojson }}</script>
+  <script src="{{ url_for('static', filename='lib/leaflet/leaflet.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/opensky_widget_map.js') }}"></script>
+  {% if not data.aircraft %}
+    <p class="card-body text-muted" style="margin-top:var(--space-2);">Aktuell keine Luftfahrzeuge im Umkreis gemeldet.</p>
+  {% endif %}
+{% endif %}

@@ -8,7 +8,7 @@ v1 bleibt unangetastet produktiv unter `G:\5 GitHub\FireFlight`. Volle Architekt
 **Vollständige Struktur-/Architektur-Vorgabe des Nutzers:** `docs/spec-struktur.md` (wörtliche Spezifikation vom 2026-07-19, Ausbaustufe 1). **Vollständige Design-Vorgabe:** `docs/spec-design.md` (Design-Tokens, Komponenten-CSS, Begründungen). **Konzeptvorgabe Ausbaustufe 2:** `fireflight2-konzept-struktur.md` (Fachmodule + PWA/Push, vom Nutzer 2026-07-23 geliefert) — daraus abgeleiteter Restrukturierungs-/Phasenplan wurde vom Nutzer freigegeben, liegt nicht im Repo. **Umsetzungsstand/Roadmap:** `docs/roadmap.md` — was aus welcher Ausbaustufe bereits implementiert und live verifiziert ist, was noch offen ist, was bewusst verschoben wurde. Vor jeder neuen Session zuerst dort nachsehen. Diese Datei hier fasst zusammen und verweist dorthin — bei Detailfragen zuerst dort nachsehen.
 
 ## Umsetzungsstand
-Ausbaustufe 1 aus `docs/spec-struktur.md` ist **implementiert und lokal live verifiziert** (venv + lokales PostgreSQL, da auf dieser Maschine kein Docker installiert ist): Datenmodell, Auth, Rollen/Berechtigungen, Dashboards, Modul-Registry, Administration, CLI-Init, Templates/Design. Ausbaustufe 2 (Fachmodule + PWA/Push aus `fireflight2-konzept-struktur.md`) ist **in Arbeit** — Phase 1 (Modul-Registry-Bootstrap), Phase 2 (Rollen ohne Dashboard), Phase 3 (PIN-Login-Migration, Passwort komplett ersetzt), Phase 4 (Notifications-Kern, Web-Push), Phase 5 (RC-Hardware-Feasibility-Spike, reduzierter Umfang), Phase 6 (Drohneneinheiten), Phase 7 (Nutzerprofil-Erweiterung inkl. scharf geschaltetem RC-Qualifikationsfilter), Phase 8 (generische Wizard-Engine, noch ohne echte Fachinhalte), Phase 9 (Einsatz/Übung + Flugbuch mit Karte, erstes echtes Fachmodul über das Modul-Registry-System), Phase 10 (Tickets + Wartungsintervalle, Gerätewart als erste Rolle ohne Dashboard), Phase 11 (Teilumfang: Zwei-Schritt-RC-Login) und Phase 12 (RC-Wizard-Inhalte, voller Umfang inkl. Startanfrage-Genehmigung + Push) sind umgesetzt und getestet. Phase 13 (fachliche Dashboard-Module) ist **implementiert, getestet (218/218), aber noch nicht als abgeschlossen zu behandeln** -- Live-Verifikation wurde mittendrin für den Tag abgebrochen, genaue nächste Schritte in `docs/roadmap.md` unter Phase 13. Danach stehen noch 2 Phasen (externe Integrationen, Tests/Doku) aus -- plus die weiterhin ausstehende Hardware-Verifikation auf der echten DJI RC Plus und die offene Büro-PWA-Frage. Die eigentliche Hardware-Verifikation von Phase 4/5 (echter Browser-/RC-Push-Rundlauf auf der realen DJI RC Plus) ist noch offen — nur Code + automatisierte Tests + `curl`-Rundlauf gegen den Dev-Server sind verifiziert. Die zuvor implementierte DJI-FlightHub-2-Integration wurde am 2026-07-23 auf Nutzerwunsch **komplett wieder entfernt** (kein Fachmodul/keine Integration soll den Kern ablenken, bevor dieser fertig steht) — Details im Verlauf unten. Details, offene Punkte und nächste Schritte: `docs/roadmap.md`.
+Ausbaustufe 1 aus `docs/spec-struktur.md` ist **implementiert und lokal live verifiziert** (venv + lokales PostgreSQL, da auf dieser Maschine kein Docker installiert ist): Datenmodell, Auth, Rollen/Berechtigungen, Dashboards, Modul-Registry, Administration, CLI-Init, Templates/Design. Ausbaustufe 2 (Fachmodule + PWA/Push aus `fireflight2-konzept-struktur.md`) ist **in Arbeit** — Phase 1 (Modul-Registry-Bootstrap), Phase 2 (Rollen ohne Dashboard), Phase 3 (PIN-Login-Migration, Passwort komplett ersetzt), Phase 4 (Notifications-Kern, Web-Push), Phase 5 (RC-Hardware-Feasibility-Spike, reduzierter Umfang), Phase 6 (Drohneneinheiten), Phase 7 (Nutzerprofil-Erweiterung inkl. scharf geschaltetem RC-Qualifikationsfilter), Phase 8 (generische Wizard-Engine, noch ohne echte Fachinhalte), Phase 9 (Einsatz/Übung + Flugbuch mit Karte, erstes echtes Fachmodul über das Modul-Registry-System), Phase 10 (Tickets + Wartungsintervalle, Gerätewart als erste Rolle ohne Dashboard), Phase 11 (Teilumfang: Zwei-Schritt-RC-Login) und Phase 12 (RC-Wizard-Inhalte, voller Umfang inkl. Startanfrage-Genehmigung + Push) sind umgesetzt und getestet. Phase 13 (fachliche Dashboard-Module) und Phase 14 (DWD-Wetter + OpenSky, als "schlanke Direktanbindung" ohne eigene Integrationsschicht) sind **umgesetzt und live verifiziert (232/232 Tests)**. Danach steht noch 1 Phase (Tests/Doku) aus -- plus die weiterhin ausstehende Hardware-Verifikation auf der echten DJI RC Plus und die offene Büro-PWA-Frage. Die eigentliche Hardware-Verifikation von Phase 4/5 (echter Browser-/RC-Push-Rundlauf auf der realen DJI RC Plus) ist noch offen — nur Code + automatisierte Tests + `curl`-Rundlauf gegen den Dev-Server sind verifiziert. Die zuvor implementierte DJI-FlightHub-2-Integration wurde am 2026-07-23 auf Nutzerwunsch **komplett wieder entfernt** (kein Fachmodul/keine Integration soll den Kern ablenken, bevor dieser fertig steht) — Details im Verlauf unten. Details, offene Punkte und nächste Schritte: `docs/roadmap.md`.
 
 ## Warum Neuentwicklung statt Weiterentwicklung von v1
 - **Technische Basis modernisieren** — weg vom frameworklosen Python-Stdlib-HTTP-Server (`http.server.ThreadingHTTPServer`) aus v1
@@ -30,7 +30,7 @@ Ausbaustufe 1 aus `docs/spec-struktur.md` ist **implementiert und lokal live ver
 - **Rollen als Arbeitskontext, nicht nur Rechte-Container** — echte Abkehr von v1: Nach Login wählt der Nutzer explizit „In welcher Funktion arbeitest du heute?" aus seinen zugewiesenen Rollen (Dokumentation, Einheitsführer, Pilot/Kamera, Flugleiter, Einsatzleiter/SBI, Gerätewart, TEL-ELW, Administrator — als DB-Datensätze, nicht hart codiert). Die gewählte Rolle bestimmt Dashboard, Navigation, Funktionsumfang und Berechtigungen der Sitzung; Wechsel jederzeit über Dropdown in der Kopfzeile ohne Re-Login. Bei nur einer Rolle optional automatisch übersprungen (Systemeinstellung)
 - **Echtes Berechtigungssystem** — Rollen bündeln granulare Permissions (`dashboard.view`, `users.edit`, `roles.assign_permissions`, ...), geprüft über `@permission_required(...)`-Decorator **und** zusätzlich serverseitig im Service, nie nur UI-seitig. Kein Hardcoden von Rollennamen in Prüfungen
 - **Datenbankbasierte, konfigurierbare Dashboards pro Rolle** — Widget-Raster (12-Spalten), Admin-Editor zum Hinzufügen/Bearbeiten/Positionieren von Basiswidgets (Überschrift, Info, Schnellzugriff, Status, Kennzahl, Hinweis, Warnung, Platzhalter). Fachliche Widgets kommen erst mit späteren Modulen
-- **Externe Integrationen (z. B. DJI FlightHub 2) aktuell komplett entfernt** — ursprünglich als „zentrale Datenquelle, nicht Nebenmodul" mit eigener Integrationsschicht (`app/integrations/`) konzipiert, wurde die einzige bestehende Implementierung (DJI-FlightHub-2, inkl. Mock-/Live-Client) am 2026-07-23 auf Nutzerwunsch komplett entfernt, um zunächst eine integrationsfreie Basis fertigzustellen (s. Verlauf unten, `docs/architecture.md`). Herkunft von Daten wird weiterhin generisch über `external_references` modelliert (Tabelle bleibt bestehen, ist nicht integrationsspezifisch) — das Prinzip „Fachmodule sprechen nie direkt mit einer externen API" gilt unverändert, sobald wieder eine Integration existiert. Recherche-Referenz falls DJI FlightHub 2 zurückkommt: `docs/dji-flighthub2-api.md`
+- **Externe Integrationen (z. B. DJI FlightHub 2) aktuell komplett entfernt** — ursprünglich als „zentrale Datenquelle, nicht Nebenmodul" mit eigener Integrationsschicht (`app/integrations/`) konzipiert, wurde die einzige bestehende Implementierung (DJI-FlightHub-2, inkl. Mock-/Live-Client) am 2026-07-23 auf Nutzerwunsch komplett entfernt, um zunächst eine integrationsfreie Basis fertigzustellen (s. Verlauf unten, `docs/architecture.md`). Herkunft von Daten wird weiterhin generisch über `external_references` modelliert (Tabelle bleibt bestehen, ist nicht integrationsspezifisch). **Bewusste Ausnahme seit Phase 14** (DWD-Wetter/OpenSky, 2026-07-24): für schreibgeschützte, nicht organisationsbezogene externe Daten ohne Persistenzbedarf rufen die Fachmodule (`app/modules/weather/`, `app/modules/opensky/`) die externe API direkt auf, ohne eigene Integrationsschicht — explizite Nutzerentscheidung ("schlanke Direktanbindung") nach der DJI-Erfahrung, nicht versehentlich vom Prinzip abgewichen. Das Prinzip gilt weiterhin für zustandsbehaftete/organisationsspezifische Integrationen (z. B. falls DJI FlightHub 2 zurückkommt). Recherche-Referenz falls DJI FlightHub 2 zurückkommt: `docs/dji-flighthub2-api.md`
 - **Modul-Registry statt fertiger Fachmodule** — Einsatzverwaltung, Flugbuch, Geräte-/Akkuverwaltung, Karten, Medien, Wartung, Wiki usw. werden in dieser Phase **bewusst nicht gebaut** (siehe v1-Referenzliste unten als spätere Kandidaten). Stattdessen ein `FireFlightModule`-Basisklassen-System (`app/modules/base.py`, `registry.py`), das später Blueprints, Navigation, Permissions, Widgets und Datenmodelle sauber andocken kann
 
 ## Offene Punkte (werden ergänzt, sobald besprochen)
@@ -66,19 +66,34 @@ Vollständige Liste: `FireFlight/README.md`, Abschnitt „Funktionen". Kurzfassu
 - **Passwort-Hashing** in v1: PBKDF2-HMAC-SHA256, 120.000 Iterationen, 16-Byte-Salt — als Mindeststandard falls kein Framework-Default (z. B. Flask-Bcrypt) gewählt wird
 
 ## Verlauf / Planungsentscheidungen
-### 2026-07-23 (Fortsetzung) — Phase 13: fachliche Dashboard-Module (ZWISCHENSTAND, Session hier abgebrochen)
-**Auf Nutzerwunsch für den Tag beendet, bevor die Live-Verifikation ganz durchlief.** Vollständiger
-Stand + konkrete nächste Schritte in `docs/roadmap.md` Abschnitt „Status: Ausbaustufe 2" → „Phase 13 —
-fachliche Dashboard-Module (IN ARBEIT)", dort zuerst nachlesen, bevor an dieser Phase weitergearbeitet
-wird. Kurzfassung: Implementierung fertig (neuer `register_template_globals()`-Hook auf
-`FireFlightModule`, Flugbuch-/Karten-Widget + „Technisches Problem melden"-Widget als erste zwei
-echte Fachmodul-Widgets über die seit Phase 1 vorbereitete Registry), Testsuite 218/218 grün, kein
-Migrationsbedarf. Live-Verifikation nur teilweise gelaufen: Karten-Widget mit echten Flugdaten
-bestätigt, Melde-Formular-Widget bestätigt korrekt zu rendern, aber der eigentliche Formular-Submit
-(`POST /tickets/melden`, mit Foto) wurde mitten im Test abgebrochen (DB-Check bestätigt: sauberer
-Zustand, keine Karteileiche). Außerdem noch offen: zwei Alt-Testeinsätze aus einer früheren
-Phase-12-Debug-Session sind noch nicht aus der Dev-DB entfernt. **Nicht als abgeschlossene Phase
-behandeln, bis die drei Punkte in der Roadmap abgearbeitet sind.**
+### 2026-07-24 (Fortsetzung) — Phase 14: DWD-Wetter + OpenSky (schlanke Direktanbindung)
+Vor Beginn per Rückfrage geklärt, wie tief die Integration angelegt werden soll (Konzeptdokument
+nennt nur zwei Stichpunkte, keinen Detail-Scope) — angesichts der DJI-FlightHub-Erfahrung (volle
+Mock-/Live-Client-Architektur gebaut, dann komplett wieder entfernt) bewusst nicht ungefragt
+denselben Weg wiederholt. Nutzer wählte die schlanke Variante: zwei neue `FireFlightModule`s
+(`app/modules/weather/`, `app/modules/opensky/`) rufen die freien, keyless öffentlichen APIs
+(Bright Sky für DWD-Daten, OpenSky anonym) direkt auf, kein `app/integrations/`-Package, keine
+Admin-Konfiguration, keine Sync-Jobs. Neuer genereller In-Prozess-TTL-Cache
+(`app/core/utilities/external_cache.py`) schützt vor allem OpenskYs niedriges Tageslimit (400
+anonyme Requests). Live-Verifikation lief **mit echten Aufrufen der echten öffentlichen
+DWD-/OpenSky-Endpunkte** (kein Mock nötig/gewünscht, da reine Lese-Endpunkte ohne Seiteneffekt —
+anders als Push/Webhook-Ziele) und lieferte reale Daten (Standort liegt nahe Frankfurt Airport,
+30 Flugzeuge im Radius gemeldet). Nebenfund dabei: das lokale `.venv` hatte `tzdata` nie installiert
+(seit Phase 9 in `requirements.txt`), `pip install -r requirements.txt` nachgeholt. Testsuite
+232/232 grün, keine Migration nötig. Details: `docs/roadmap.md` Abschnitt „Status: Ausbaustufe 2"
+→ Phase 14.
+
+### 2026-07-24 — Phase 13 abgeschlossen (neue Session nach `git pull`, Live-Verifikation zu Ende geführt)
+Diese Session begann mit einem `git pull` (Fast-Forward `007c9e3` → `b8500bc`), das Phasen 7-13 auf
+diese Maschine brachte, die zuvor auf einem anderen Weg entstanden waren -- die lokale Dev-DB stand
+hier noch auf dem Phase-6-Schema und musste erst per `flask db upgrade` (`c610af27d089` →
+`49286e4006a0`) nachgezogen werden. Danach den am 2026-07-23 abgebrochenen `POST
+/tickets/melden`-Live-Test zu Ende geführt (mit UND ohne Foto, per `curl` mit `X-CSRFToken`-Header
+gegen den echten Dev-Server, Flash + Redirect + DB-Persistenz bestätigt, Testartefakte danach wieder
+entfernt). Die als offen vermerkten Alt-Testeinsätze aus einer früheren Debug-Session waren in der
+lokalen Dev-DB bereits nicht mehr vorhanden. Damit ist **Phase 13 vollständig fertig und live
+verifiziert** (218/218 Tests). Details: `docs/roadmap.md` Abschnitt „Status: Ausbaustufe 2" →
+Phase 13, „Nachtrag 2026-07-24".
 
 ### 2026-07-23 (Fortsetzung) — Phase 12: RC-Wizard-Inhalte (voller Umfang) umgesetzt
 Auf "ja mach weiter und frag" begonnen -- eine Rückfrage zur Büro-PWA-Priorität (Antwort: erst Phase

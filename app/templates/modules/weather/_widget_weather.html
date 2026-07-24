@@ -1,0 +1,27 @@
+{% set data = weather_current_widget_data(widget) %}
+<div class="card-title">{{ widget.title or "Wetter (DWD)" }}</div>
+{% if not data.available %}
+  <p class="card-body text-muted">DWD-Wetterdaten aktuell nicht verfügbar.</p>
+{% else %}
+  {% set w = data.weather %}
+  <div class="card-body">
+    <p style="font-size:1.5rem; margin:0;">{{ w.temperature }} °C
+      <span class="text-muted" style="font-size:0.9rem;">({{ w.condition }})</span>
+    </p>
+    <dl style="display:grid; grid-template-columns:auto 1fr; gap:2px var(--space-2); margin-top:var(--space-2); font-size:0.9rem;">
+      <dt class="text-muted">Wind</dt>
+      <dd>{{ w.wind_speed_10 }} km/h aus {{ w.wind_direction_10 }}°{% if w.wind_gust_speed_10 %}, Böen {{ w.wind_gust_speed_10 }} km/h{% endif %}</dd>
+      <dt class="text-muted">Niederschlag</dt>
+      <dd>{{ w.precipitation_10 }} mm/10 Min.</dd>
+      <dt class="text-muted">Bewölkung</dt>
+      <dd>{{ w.cloud_cover }} %</dd>
+      {% if w.visibility %}
+      <dt class="text-muted">Sicht</dt>
+      <dd>{{ (w.visibility / 1000) | round(1) }} km</dd>
+      {% endif %}
+    </dl>
+    {% if w.timestamp %}
+    <p class="text-muted" style="font-size:0.8rem; margin-top:var(--space-2);">Stand: {{ w.timestamp.strftime("%d.%m.%Y %H:%M") }} Uhr</p>
+    {% endif %}
+  </div>
+{% endif %}

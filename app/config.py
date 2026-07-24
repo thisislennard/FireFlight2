@@ -30,6 +30,23 @@ class BaseConfig:
     VAPID_PRIVATE_KEY = os.environ.get("VAPID_PRIVATE_KEY", "")
     VAPID_CLAIMS_EMAIL = os.environ.get("VAPID_CLAIMS_EMAIL", "admin@example.org")
 
+    # Externe Dashboard-Widgets (Phase 14, Konzeptdokument: "Wetterdaten vom DWD" / "OpenSkyMap").
+    # Bewusst "schlanke Direktanbindung" statt eigener Integrationsschicht mit Admin-Konfiguration
+    # (Nutzerentscheidung nach der DJI-FlightHub-Erfahrung, s. docs/roadmap.md Phase 14) -- daher
+    # hier als Konstanten statt über eine Admin-UI. Standort: Feuerwehr Liederbach am Taunus,
+    # identisch mit dem seit Phase 9 verwendeten Karten-Fallback-Mittelpunkt
+    # (app/static/js/incidents_widget_map.js).
+    WEATHER_LOCATION_LAT = 50.08
+    WEATHER_LOCATION_LON = 8.45
+    WEATHER_CACHE_SECONDS = 600  # 10 Min. -- DWD-Messwerte aktualisieren sich ohnehin nur stündlich.
+
+    OPENSKY_LOCATION_LAT = 50.08
+    OPENSKY_LOCATION_LON = 8.45
+    OPENSKY_RADIUS_KM = 50
+    # OpenSky erlaubt anonymen Clients nur 400 Requests/Tag -- 300s TTL begrenzt den Verbrauch auf
+    # max. 288 Requests/Tag selbst bei durchgehender Nutzung, mit Puffer nach unten.
+    OPENSKY_CACHE_SECONDS = 300
+
 
 class DevelopmentConfig(BaseConfig):
     DEBUG = True

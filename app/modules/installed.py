@@ -9,9 +9,13 @@ from __future__ import annotations
 
 from app.modules.base import FireFlightModule
 from app.modules.incidents.module import IncidentsModule
+from app.modules.opensky.module import OpenSkyModule
 from app.modules.tickets.module import TicketsModule
+from app.modules.weather.module import WeatherModule
 
 INSTALLED_MODULES: list[FireFlightModule] = [
     IncidentsModule(),
     TicketsModule(),
+    WeatherModule(),
+    OpenSkyModule(),
 ]
