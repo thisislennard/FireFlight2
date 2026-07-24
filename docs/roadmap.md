@@ -611,15 +611,56 @@ Testsuite insgesamt (Ausbaustufe 2, Stand Phase 13): 218/218 grün.
   Flugzeuge mit ICAO24-Adressen im Radius (Cap erreicht, s. o.). Keiner der beiden
   "nicht verfügbar"-Fehlerzustände wurde ausgelöst.
 
-### Als Nächstes (Reihenfolge s. Restrukturierungsplan)
-Phase 15 (Tests und Dokumentation) laut Roadmap-Reihenfolge, oder die weiterhin ausstehende
-Hardware-Verifikation auf der echten DJI RC Plus (Phase 4/5: Push-Rundlauftest im normalen Browser
-zuerst, danach PWA-Installation über `/rc/pair` → `/rc/home` mit einem der beiden
-`seed-test-data`-Testgeräte, Hintergrund-Push, DJI-Pilot-2-Deep-Link-URL ermitteln und in
-Administration → RC-Geräte eintragen, außerdem der komplette Preflight→Flugstart→Flugende-Zyklus aus
-Phase 12 auf echter Hardware) -- je nachdem, was der Nutzer als Nächstes vorgibt. Offen und mit dem
-Nutzer zu klären: ob/wann eine "Büro-PWA" (Installierbarkeit der Desktop-Oberfläche, Konzeptdokument
-Abschnitt 1) nachgezogen wird -- im 15-Phasen-Plan bisher keiner Phase explizit zugeordnet.
+- **Phase 15 — Tests und Dokumentation**: letzte Phase des 15-Phasen-Restrukturierungsplans, im Repo
+  selbst nur mit dem knappen Titel benannt (der volle Plantext liegt außerhalb des Repos, s. o.) --
+  daher pragmatisch als "Testabdeckung prüfen + README/Architekturdoku auf den aktuellen
+  Gesamtstand bringen" ausgelegt statt auf eine nicht mehr auffindbare Detailvorgabe zu warten.
+
+  **`README.md` komplett überarbeitet**: war noch vollständig auf Ausbaustufe 1 stehen geblieben
+  (Stand vor Phase 1), unter anderem mit der inzwischen falschen Aussage "vollständige fachliche
+  Module... noch nicht enthalten". Neue Abschnitte für PIN-Login/Kontosperre, RC-PWA-Zugang,
+  Wizard-System, Web-Push, die vier Fachmodule (Einsätze/Flugbuch, Tickets/Wartung, Wetter,
+  OpenSky), Nutzerprofile/Drohneneinheiten und `flask seed-test-data`; Projektstruktur-Baum,
+  Umgebungsvariablen-Tabelle (VAPID-Variablen ergänzt) und Tests-Abschnitt (232 statt 22 Tests) auf
+  den aktuellen Stand gebracht. **Nebenfund dabei:** README verlangte bisher hart Python 3.12 für
+  die lokale Entwicklung, das lokale `.venv` auf dieser Maschine läuft aber tatsächlich unter
+  3.10.11 (Dockerfile/Produktion zielen weiterhin auf 3.12) -- als bekannte, nie geprüfte
+  Diskrepanz dokumentiert statt einer der beiden Zahlen einfach zu vertrauen.
+
+  **`docs/architecture.md` um einen neuen Abschnitt "Ausbaustufe 2 — Entscheidungen" ergänzt**: die
+  über die Phasen verstreuten, weiterhin gültigen Architekturmuster gebündelt (Berechtigungsprüfung
+  in Fachmodul-Widgets aus Python statt Template, die beiden Sidebar-/Landing-Navigation-Bugs aus
+  Phase 9/10 als Lehre für künftige Module, RC-PWA-Doppel-Session-Modell, Wizard-Engine-Neutralität
+  + `field_key`-Andockpunkt, Magic-Byte-Upload-Validierung, die Phase-14-Entscheidung "schlanke
+  Direktanbindung" samt Cache-Strategie, punktuelle statt generelle CSP-Lockerungen) -- die
+  chronologische Phase-für-Phase-Herleitung bleibt bewusst nur in dieser Roadmap-Datei, nicht
+  dupliziert.
+
+  **Testabdeckung geprüft:** keine dedizierte `tests/test_administration.py`, aber die
+  Administrationsrouten sind über die jeweiligen Fachbereichs-Testdateien mitabgedeckt
+  (Nutzerverwaltung in `test_auth.py`/`test_profile.py`, Rollenverwaltung in `test_roles.py`,
+  RC-Geräte-/Einheiten-Verwaltung in `test_rc.py`/`test_units.py`, Dashboard-Editor in
+  `test_dashboards.py`) -- keine echte Lücke gefunden, daher bewusst keine neuen Tests nur um
+  eine separate Datei zu haben. Volle Suite nach den Doku-Änderungen erneut grün: **232/232.**
+
+  **Bewusst nicht Teil dieser Phase:** die beiden weiterhin offenen, nur vom Nutzer selbst
+  durchführbaren Punkte (Hardware-Verifikation auf der echten DJI RC Plus, Docker-Compose-Lauf) --
+  s. "Als Nächstes" unten sowie `docs/architecture.md` Abschnitt "Verifikation der Ausbaustufe 2".
+
+### Als Nächstes
+Der 15-Phasen-Restrukturierungsplan ist damit inhaltlich vollständig umgesetzt. Verbleibend, beide
+nur vom Nutzer selbst durchführbar (keine Entwicklungsaufgabe mehr):
+1. **Hardware-Verifikation auf der echten DJI RC Plus** (Phase 4/5/12): Push-Rundlauftest im
+   normalen Browser zuerst, danach PWA-Installation über `/rc/pair` → `/rc/home` mit einem der
+   beiden `seed-test-data`-Testgeräte, Hintergrund-Push, DJI-Pilot-2-Deep-Link-URL ermitteln und in
+   Administration → RC-Geräte eintragen, außerdem der komplette Preflight→Flugstart→Flugende-Zyklus
+   auf echter Hardware.
+2. **Docker-Compose-Lauf** (`docker compose up -d --build`) auf einer Maschine mit Docker, bisher
+   nie getestet (Entwicklungsmaschine hat kein Docker installiert).
+
+Offen und mit dem Nutzer zu klären: ob/wann eine "Büro-PWA" (Installierbarkeit der
+Desktop-Oberfläche, Konzeptdokument Abschnitt 1) nachgezogen wird -- im 15-Phasen-Plan bisher
+keiner Phase explizit zugeordnet.
 
 ---
 
